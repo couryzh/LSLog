@@ -4,22 +4,29 @@
 #include <pthread.h>
 #include "LSLogCommon.h"
 
+#define LSLOG_MEMPOOL_BLOCK_SIZE	8
+
 class LSLogMemPool {
 public:
 	LSLogMemPool(int initSize);
 	~LSLogMemPool();
 
-	LSLogInfo *alloc(void);
-	LSLogInfo *alloc(int n);
+	LSLogInfo *malloc();
+	LSLogInfo *malloc(int n);
 	void free(void *);
 
 private:
-	enum {blockSize = 10};
-	typedef LSLogInfo LogBlock[blockSize];
+	void allocUnlock(int n=LSLOG_MEMPOOL_BLOCK_SIZE);
 
-	pthread_mutex_t *lock;
-	std::list<LSLogInfo *> freeList;
-	std::list<LogBlock> allocedBlockList;
+private:
+	pthread_mutex_t lock;
+	pthread_mutexattr_t attr;
+	
+	// 可用数量
+	int size;
+
+	// 空闲链表
+	LSLogInfo *freeList;
 };
 
 #endif

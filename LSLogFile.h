@@ -2,25 +2,33 @@
 #define LSLOGFILE_H 
 
 #include "LSLogCommon.h"
-#include "LSLogTemplate.h"
+
+#define LSLOG_FILE 		"ls.log"
+
+class LSLogTemplate;
 
 class LSLogFile {
+	friend class LSLogTemplate;
 public:
 	LSLogFile();
-	bool save(time_t t, char user, char *event);
+	~LSLogFile();
+	bool save(LSLogInfo *logInfo);
 
-	int query(time_t from, time_t to, int blockSize, int blockIndex, char *&startAddr);
+	int query(time_t from, time_t to, int blockSize, int blockIndex, struct LSLogInfo *& logInfos);
 
 private:
-	struct logFileHeader {
-		short itemSize;
+	LogStorageItem * searchIndex(time_t key);
+
+private:
+	struct LogFileHeader {
+		int overed; 		// 已写满，从头开始写
+		//short itemSize;
 		int currentIndex;
 	};
-
-#define ITEM_START sizeof(struct logFileHeader)
-	FILE *logFile;
+	
+	char logPath[128];
+	int  logFile;
 	void *mapAddr;
-
 	LSLogTemplate *logtpl;	
 };
 
