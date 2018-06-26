@@ -16,25 +16,25 @@ public:
 	int query(time_t from, time_t to, int blockSize, int blockIndex, struct LSLogInfo *& logInfos);
 
 private:
-	LogStorageItem * searchIndex(time_t key);
+	int searchBigerIndex(time_t key);
+	int searchSmallerIndex(time_t key);
+	unsigned getLogFileSize();
 
 private:
 	struct LogFileHeader {
-		char overed; 		// 已写满，从头开始写
 		int currentIndex;
+		bool loopCover;
 	};
 	
-	LogFileHeader fileHeader;
-	bool isCreateFile;
-
+	bool isNewFile;
 	int  logFileFd;
 	void *mapAddr;
+	LogFileHeader fileHeader;
 	char logPath[LSLOG_MAX_PATH_LEN];
+	pthread_rwlock_t rwlock;
 
 	LSLogTemplate *logTpl;	
 	LSLogMemPool *memPool;
-
-
 };
 
 #endif

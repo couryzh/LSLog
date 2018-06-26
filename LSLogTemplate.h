@@ -20,7 +20,7 @@ public:
 	const char *shrink(char *ch);
 	void shrink(const LSLogInfo *logInfo, LogStorageItem *logStorageItem);
 	const char *expand(char *sym);
-	void expand(const LogStorageItem *logStorageItem, LSLogInfo *logInfo);
+	void expand(const LogStorageItem *logStorageItem, LSLogInfo *&logInfo);
 
 
 private:

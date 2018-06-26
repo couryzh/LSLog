@@ -179,7 +179,7 @@ const char *LSLogTemplate::expand(char *sym)
 	return it->second.c_str();
 }
 
-void LSLogTemplate::expand(const LogStorageItem *logStorageItem, LSLogInfo *logInfo)
+void LSLogTemplate::expand(const LogStorageItem *logStorageItem, LSLogInfo *&logInfo)
 {
 
 }

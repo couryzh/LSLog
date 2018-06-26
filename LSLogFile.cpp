@@ -7,14 +7,27 @@
 #include "LSLogTemplate.h"
 #include "LSLogFile.h"
 
-#define ITEM_OFF 				sizeof(struct LogFileHeader)
+#define LSLOG_INC(i)			((i + 1) % LSLOG_MAX_LOG_NUM )
 
+#define LSLOG_DEC(i, hdr)	\
+	do {					\
+		if (i == 0) { 		\
+		}					\
+		else {				\
+							\
+		}					\
+	} while (0)
+
+#define ITEM_OFF 				sizeof(struct LogFileHeader)
 #define ITEM_SIZE 				sizeof(LogStorageItem)
-#define ITEM_AT(mAddr, i)  		(LogStorageItem *)((char *)(mAddr) + ITEM_OFF) + (i)
+#define ITEM_AT(mAddr, i)  	\
+	i < 0 ? NULL : ((LogStorageItem *)((char *)(mAddr) + ITEM_OFF) + i)
 #define ITEM_HEAD_PTR(mAddr)	ITEM_AT(mAddr, 0)
 #define ITEM_TAIL_PTR(mAddr)	ITEM_AT(mAddr, LSLOG_MAX_LOG_NUM - 1)
+#define ITEM_LAST_PTR(mAddr, hdr)	ITEM_AT(mAddr, hdr.currentIndex)
 
 #define LSLOG_PERM 		S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH
+
 
 LSLogFile::LSLogFile(unsigned type, LSLogMemPool *pool, LSLogTemplate *tpl)
 	: logTpl(tpl), memPool(pool)
@@ -44,13 +57,14 @@ LSLogFile::LSLogFile(unsigned type, LSLogMemPool *pool, LSLogTemplate *tpl)
 		myLog("too long path: %s%s",  LSLOG_WORK_PATH, fileName); 
 		exit(-1);
 	}
+
 	if (access(logPath, F_OK) < 0) {
-		isCreateFile = true;
-		fileHeader.overed = 0;
-		fileHeader.currentIndex = 0;
+		isNewFile = true;
+		fileHeader.loopCover = 0;
+		fileHeader.currentIndex = -1;
 	}
 	else {
-		isCreateFile = false;
+		isNewFile = false;
 	}
 	logFileFd = open(logPath, O_RDWR | O_CREAT, LSLOG_PERM);
 	if (logFileFd < 0) {
@@ -58,7 +72,7 @@ LSLogFile::LSLogFile(unsigned type, LSLogMemPool *pool, LSLogTemplate *tpl)
 		exit(-1);
 	}
 
-	logFileSize = sizeof(LogFileHeader) + LSLOG_MAX_LOG_NUM * sizeof(LogStorageItem);
+	logFileSize = getLogFileSize();
 	if (ftruncate(logFileFd, logFileSize) < 0) {
 		close(logFileFd);
 		myLog("expand logfile size to %u\n", logFileSize);
@@ -71,49 +85,62 @@ LSLogFile::LSLogFile(unsigned type, LSLogMemPool *pool, LSLogTemplate *tpl)
 		myLogErr("mmap logfile");
 		exit(-1);
 	}
-
-	// 更新本地头, 保证本地的文件头副本与文件中的头部一致
-	if (isCreateFile) {
-		memcpy(mapAddr, &fileHeader, sizeof(LogFileHeader));
+	LogFileHeader *header = (LogFileHeader *)mapAddr;
+	if (isNewFile) {
+		memcpy(header, &fileHeader, sizeof(LogFileHeader));
 	}
 	else {
-		memcpy(&fileHeader, mapAddr, sizeof(LogFileHeader));
+		memcpy(&fileHeader, header, sizeof(LogFileHeader));
 	}
-
-	char tplPath[LSLOG_MAX_PATH_LEN];
-	if (snprintf(tplPath, LSLOG_MAX_PATH_LEN, "%s%s", LSLOG_WORK_PATH, LSLOG_CFG_TEMPLATE) >= LSLOG_MAX_PATH_LEN) {
-		myLog("too long path: %s%s",  LSLOG_WORK_PATH, LSLOG_CFG_TEMPLATE); 
-		exit(-1);
-	}
+	pthread_rwlock_init(&rwlock, NULL);
 }
 
 LSLogFile::~LSLogFile()
 {
-	unsigned  logFileSize; 
+	unsigned fileSize; 
 
-	logFileSize = sizeof(LogFileHeader) + LSLOG_MAX_LOG_NUM * sizeof(LogStorageItem);
-	msync(mapAddr, logFileSize, MS_ASYNC); 
-	munmap(mapAddr, logFileSize);
+	fileSize = getLogFileSize();
+	msync(mapAddr, fileSize, MS_ASYNC); 
+	munmap(mapAddr, fileSize);
+	close(logFileFd);
+
+	pthread_rwlock_destroy(&rwlock);
 
 	myLog("destruct LSLogTemplate");
 }
 
+unsigned LSLogFile::getLogFileSize()
+{
+	return ITEM_OFF + LSLOG_MAX_LOG_NUM * sizeof(LogStorageItem);
+}
+
 bool LSLogFile::save(LSLogInfo *logInfo)
 {
-	LogStorageItem logStorageItem, *storageAddr;
+	LogStorageItem newLogItem;
 
 	// 转成模板
-	logTpl->shrink(logInfo, &logStorageItem);
+	logTpl->shrink(logInfo, &newLogItem);
 
-	// 更新本地头, 保证本地的文件头副本与文件中的头部一致
-	fileHeader.currentIndex = (fileHeader.currentIndex + 1) % LSLOG_MAX_LOG_NUM;
-	if (fileHeader.currentIndex == 0) fileHeader.overed = 1;
-	storageAddr  = ITEM_AT(mapAddr, fileHeader.currentIndex);
-
-	// 写入记录, 更新文件头
-	memcpy(storageAddr, &logStorageItem, sizeof(LogStorageItem));
-	LogFileHeader *header = (LogFileHeader *)mapAddr;
-	memcpy(header, &fileHeader, sizeof(LogFileHeader));
+	pthread_rwlock_wrlock(&rwlock);
+	LogStorageItem *lastLogItem = ITEM_LAST_PTR(mapAddr, fileHeader);
+	if (newLogItem.t < lastLogItem->t) {
+		// TODO: 找到合适的插入位置
+		int newIndex = searchBigerIndex(newLogItem.t);
+		if (fileHeader.currentIndex < newIndex && fileHeader.loopCover)
+			fileHeader.loopCover = false;
+		fileHeader.currentIndex = newIndex;
+		// 丢弃后面的index(更改header.currentIndex)
+	}
+	else {
+		fileHeader.currentIndex = LSLOG_INC(fileHeader.currentIndex);
+		lastLogItem = ITEM_AT(mapAddr, fileHeader.currentIndex);
+		memcpy(lastLogItem, &newLogItem, sizeof(LogStorageItem));
+		if (fileHeader.currentIndex == 0) {
+			fileHeader.loopCover = 1;
+		}
+		memcpy(mapAddr, &fileHeader, sizeof(LogFileHeader));
+	}
+	pthread_rwlock_unlock(&rwlock);
 
 	myLog("saved finish");
 	return true;
@@ -121,35 +148,56 @@ bool LSLogFile::save(LSLogInfo *logInfo)
 
 int LSLogFile::query(time_t from, time_t to, int blockSize, int blockIndex, struct LSLogInfo *& logInfos)
 {
-	int i, index, totalInfo;
-	LogStorageItem *item, *begin, *end;		
+	int i, offIndex, index, totalInfo;
+	int beginIndex, endIndex;
+	LogStorageItem *item;		
+	LSLogInfo *logInfo, *prev;
 
-	begin = searchIndex(from);
-	end = searchIndex(to);
+	prev = NULL;
+	pthread_rwlock_rdlock(&rwlock);
+	beginIndex = searchBigerIndex(from);
+	endIndex = searchSmallerIndex(to);
 
-	if (end >= begin)
-		totalInfo = (end - begin) / ITEM_SIZE + 1;
-	else 
-		totalInfo = (ITEM_TAIL_PTR(mapAddr) - begin) / ITEM_SIZE + 1 +
-			(end - ITEM_HEAD_PTR(mapAddr)) / ITEM_SIZE + 1;
-
-	// 得到指定的记录
-	index = (blockIndex - 1) * blockSize;
-	for (i=0; i<blockSize; i++) {
-		item = ITEM_AT(mapAddr, index);
-		if (item > end) break;
-
-		// fill  into logInfos	
-		index = (index+1) % LSLOG_MAX_LOG_NUM;
+	if (endIndex >= beginIndex) {
+		totalInfo = (endIndex - beginIndex) + 1;
+	}
+	else {
+		totalInfo = (LSLOG_MAX_LOG_NUM - 1 - beginIndex) + 1 + endIndex + 1;
 	}
 
+	// 得到指定的记录
+	offIndex = (blockIndex - 1) * blockSize;
+	for (i=0; i<blockSize; i++) {
+		index = (beginIndex + offIndex + i) % LSLOG_MAX_LOG_NUM; 
+		if (endIndex >= beginIndex) {
+			if (index > endIndex) break;
+		}
+		else {
+			if (index < endIndex) break;
+		}
+
+		item = ITEM_AT(mapAddr, index);
+		logInfo = memPool->malloc();	
+		logTpl->expand(item, logInfo);
+		if (prev == NULL) {
+			prev = logInfo;
+		}
+		else {
+			prev->next = logInfo;
+		}
+	}
+
+	pthread_rwlock_unlock(&rwlock);
 	return totalInfo;
 }
 
-LogStorageItem * LSLogFile::searchIndex(time_t key)
+int LSLogFile::searchBigerIndex(time_t key)
 {
-	return NULL;	
+	return 0;	
 }
 
-
+int LSLogFile::searchSmallerIndex(time_t key)
+{
+	return 0;
+}
 
