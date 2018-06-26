@@ -3,14 +3,13 @@
 
 #include "LSLogCommon.h"
 
-#define LSLOG_FILE 		"ls.log"
-
 class LSLogTemplate;
+class LSLogMemPool;
 
 class LSLogFile {
 	friend class LSLogTemplate;
 public:
-	LSLogFile();
+	LSLogFile(unsigned type, LSLogMemPool *pool, LSLogTemplate *tpl);
 	~LSLogFile();
 	bool save(LSLogInfo *logInfo);
 
@@ -21,15 +20,21 @@ private:
 
 private:
 	struct LogFileHeader {
-		int overed; 		// 已写满，从头开始写
-		//short itemSize;
+		char overed; 		// 已写满，从头开始写
 		int currentIndex;
 	};
 	
-	char logPath[128];
-	int  logFile;
+	LogFileHeader fileHeader;
+	bool isCreateFile;
+
+	int  logFileFd;
 	void *mapAddr;
-	LSLogTemplate *logtpl;	
+	char logPath[LSLOG_MAX_PATH_LEN];
+
+	LSLogTemplate *logTpl;	
+	LSLogMemPool *memPool;
+
+
 };
 
 #endif

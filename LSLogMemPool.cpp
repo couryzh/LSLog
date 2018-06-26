@@ -1,3 +1,4 @@
+#include "log.h"
 #include "LSLogMemPool.h"
 
 LSLogMemPool::LSLogMemPool(int initSize)
@@ -49,10 +50,10 @@ LSLogInfo *LSLogMemPool::malloc()
 	}
 
 	LSLogInfo *logInfo;
-	freeList = freeList->next;
-	freeList->next = NULL;
 	logInfo = freeList;
+	freeList = freeList->next;
 	size -= 1;
+	logInfo->next = NULL;
 	pthread_mutex_unlock(&lock);
 	return logInfo;
 }
@@ -61,6 +62,7 @@ LSLogInfo *LSLogMemPool::malloc(int n)
 {
 	LSLogInfo *head, *curr, *prev;
 
+	head = prev = NULL;
 	pthread_mutex_lock(&lock);
 	for (int i=0; i<n; i++) {
 		curr = malloc();	
@@ -76,7 +78,6 @@ LSLogInfo *LSLogMemPool::malloc(int n)
 	pthread_mutex_unlock(&lock);
 	return head;
 }
-
 
 void LSLogMemPool::free(void *p)
 {
@@ -94,3 +95,13 @@ void LSLogMemPool::free(void *p)
 	pthread_mutex_unlock(&lock);
 }
 
+
+void LSLogMemPool::dump()
+{
+	LSLogInfo *p;
+	printf("mempool freelist\n");
+	for (p=freeList; p; p=p->next) {
+		printf("%p ", p);
+	}
+	printf("\n");
+}

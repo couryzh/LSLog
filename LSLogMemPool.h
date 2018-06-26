@@ -17,6 +17,7 @@ public:
 
 private:
 	void allocUnlock(int n=LSLOG_MEMPOOL_BLOCK_SIZE);
+	void dump();
 
 private:
 	pthread_mutex_t lock;

@@ -17,7 +17,6 @@ private:
 	pthread_mutex_t lock;
 	bool isQueueEmpty;
 	pthread_cond_t cond;
-
 };
 
 #endif

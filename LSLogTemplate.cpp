@@ -9,9 +9,15 @@
 // 符号最大长度
 #define LSLOG_TEMPLATE_MAX_SYM_LEN  4
 
-LSLogTemplate::LSLogTemplate(const char *tplFile)
+LSLogTemplate::LSLogTemplate()
 {
-	load(tplFile);
+	char tplPath[LSLOG_MAX_PATH_LEN];
+
+	if (snprintf(tplPath, LSLOG_MAX_PATH_LEN, "%s%s", LSLOG_WORK_PATH, LSLOG_CFG_TEMPLATE) >= LSLOG_MAX_PATH_LEN) {
+		myLog("too long template path: %s%s",  LSLOG_WORK_PATH, LSLOG_CFG_TEMPLATE); 
+		exit(-1);
+	}
+	load(tplPath);
 }
 
 void LSLogTemplate::load(const char *tplFile)
@@ -20,14 +26,11 @@ void LSLogTemplate::load(const char *tplFile)
 	char *sym, *ch;
 	FILE *tplFp;
 
-	if (strlen(tplFile) >= TEMPLATE_FILE_SIZE) {
-		myLog("too long template file name");			
-	}
-	strncpy(templateFile, tplFile, TEMPLATE_FILE_SIZE);	
+	strcpy(templatePath, tplFile);
 
 	tplFp = fopen(tplFile, "rb");
 	if (tplFp == NULL) {
-		myLog("open template file %s", tplFile);
+		myLogErr("open template file %s", tplFile);
 		exit(-1);
 	}
 
@@ -41,6 +44,8 @@ void LSLogTemplate::load(const char *tplFile)
 	}
 	
 	fclose(tplFp);
+
+	//dump();
 }
 
 bool LSLogTemplate::addToken(char *sym, char *ch)
@@ -139,8 +144,14 @@ void LSLogTemplate::clear()
 
 void LSLogTemplate::reLoad(const char *tplFile)
 {
+	char tplPath[LSLOG_MAX_PATH_LEN];
+
+	if (snprintf(tplPath, LSLOG_MAX_PATH_LEN, "%s%s", LSLOG_WORK_PATH, tplFile) >= LSLOG_MAX_PATH_LEN) {
+		myLog("too long template path: %s%s",  LSLOG_WORK_PATH, tplFile); 
+		exit(-1);
+	}
 	clear();
-	load(tplFile);
+	load(tplPath);
 }
 
 const char *LSLogTemplate::shrink(char *ch)
@@ -171,4 +182,19 @@ const char *LSLogTemplate::expand(char *sym)
 void LSLogTemplate::expand(const LogStorageItem *logStorageItem, LSLogInfo *logInfo)
 {
 
+}
+
+void LSLogTemplate::dump()
+{
+	std::map<std::string, std::string>::iterator it;
+
+	printf("symbol to Charater\n");
+	for (it=symToCh.begin(); it!=symToCh.end(); ++it) {
+		printf("  %s: %s\n", it->first.c_str(), it->second.c_str());
+	}
+
+	printf("Charater to symbol\n");
+	for (it=chToSym.begin(); it!=chToSym.end(); ++it) {
+		printf("  %s: %s\n", it->first.c_str(), it->second.c_str());
+	}
 }
