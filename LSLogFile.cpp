@@ -149,7 +149,7 @@ bool LSLogFile::save(LSLogInfo *logInfo)
 		return false;
 	}
 	//dumpStorageItem(&newLogItem);
-
+	
 	pthread_rwlock_wrlock(&rwlock);
 	//memcpy(&fileHeader, (LogFileHeader*)mapAddr, sizeof(LogFileHeader));
 
@@ -256,7 +256,7 @@ int LSLogFile::query(time_t from, time_t to, int blockSize, int blockIndex, stru
 
 int LSLogFile::searchLeft(time_t key)
 {
-	int i, prev;
+	int i;
 	LogStorageItem  *item;
 
 	if (fileHeader.headIndex < 0 || fileHeader.tailIndex < 0) 
