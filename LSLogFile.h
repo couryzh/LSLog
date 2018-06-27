@@ -15,15 +15,21 @@ public:
 
 	int query(time_t from, time_t to, int blockSize, int blockIndex, struct LSLogInfo *& logInfos);
 
+#if 1
+	void dump();
+#endif
+
 private:
-	int searchBigerIndex(time_t key);
-	int searchSmallerIndex(time_t key);
+	int searchLeft(time_t key);
+	int searchRight(time_t key);
+	void unset(int fromIndex, int toIndex);
 	unsigned getLogFileSize();
+	void dumpStorageItem(LogStorageItem *item);
 
 private:
 	struct LogFileHeader {
-		int currentIndex;
-		bool loopCover;
+		int headIndex;
+		int tailIndex;
 	};
 	
 	unsigned logType;

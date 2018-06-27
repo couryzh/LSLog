@@ -12,8 +12,8 @@ LSLogTest: $(OBJ_PATH)/LSLogCacheQueue.o $(OBJ_PATH)/LSLog.o $(OBJ_PATH)/LSLogFi
 	$(OBJ_PATH)/LSLogMemPool.o $(OBJ_PATH)/LSLogTemplate.o $(OBJ_PATH)/LSLogTest.o
 	$(CC) $^ -o $@ $(LINK)
 
-$(OBJ_PATH)/%.o: %.cpp
-	$(CC) $(CXXFLAGS) $(OPTIMIZE) $(COMPILE) $< -o $@ 
+$(OBJ_PATH)/%.o: %.cpp LSLogCommon.h
+	$(CC) $(CXXFLAGS) $(NOPTIMIZE) $(COMPILE) $< -o $@ 
 
 clean:
 	rm -f $(OBJ_PATH)/*.o ~*

@@ -11,8 +11,9 @@ LSLogFileImpl::LSLogFileImpl(LSLogMemPool *pool)
 	int err;
 
 	logTpl = new LSLogTemplate();
-	for (int i=0; i<LOG_NUM; i++)
+	for (int i=0; i<LOG_NUM; i++) {
 		logFile[i] = new LSLogFile(i, pool, logTpl);
+	}
 	cacheQueue = new LSLogCacheQueue();
 
 	threadRun = true;
@@ -40,7 +41,6 @@ void LSLogFileImpl::stopSave()
 void * LSLogFileImpl::saveTaskThread(void *arg)
 {
 	LSLogFileImpl *th = static_cast<LSLogFileImpl*>(arg);
-	th->threadRun = false;	
 	th->saveLog();
 
 	return NULL;
@@ -54,7 +54,6 @@ bool LSLogFileImpl::log(LogType type, time_t t, char user, const char *event)
 	logInfo->user = user;
 	strcpy(logInfo->event, event);
 
-	myLog("in queue");
 	// 缓存到队列，如果有消费者等待则唤醒它
 	cacheQueue->in(logInfo);
 
@@ -72,6 +71,7 @@ int LSLogFileImpl::queryLog(LogType type, time_t from, time_t to, int pageCapaci
 void LSLogFileImpl::saveLog()
 {
 	while (threadRun) {
+		myLog("savelog run...");
 		// 取出缓存队列的元素, 队列空时阻塞
 		LSLogInfo *logInfo = cacheQueue->out();
 

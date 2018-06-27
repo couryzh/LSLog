@@ -26,11 +26,11 @@ void LSLogCacheQueue::in(LSLogInfo *logInfo)
 	}
 	queue.insert(it, logInfo);
 
-	myLog("after enqueue, queue size: %d", queue.size());
+	//myLog("after enqueue, queue size: %d", queue.size());
 	
 	if (isQueueEmpty) {
 		isQueueEmpty = false;
-		myLog("after enqueue, wake up");
+		//myLog("after enqueue, wake up");
 		pthread_cond_signal(&cond);
 	}
 	pthread_mutex_unlock(&lock);
@@ -42,14 +42,14 @@ LSLogInfo *LSLogCacheQueue::out()
 
 	pthread_mutex_lock(&lock);
 	while (queue.size() == 0) {
-		myLog("empty, wait ...");
+		//myLog("empty, wait ...");
 		isQueueEmpty = true;
 		pthread_cond_wait(&cond, &lock);
 	}
 
 	logInfo = queue.front();
 	queue.pop_front();
-	myLog("after dequeue, queue size: %d", queue.size());
+	//myLog("after dequeue, queue size: %d", queue.size());
 	pthread_mutex_unlock(&lock);
 	return logInfo;
 }

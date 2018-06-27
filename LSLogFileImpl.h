@@ -20,6 +20,9 @@ public:
 			struct LSLogInfo *&logInfos);
 	static  void * saveTaskThread(void *arg);
 
+public:
+	LSLogFile *logFile[LOG_NUM];	// set private after test
+
 private:
 	void saveLog();
 	void stopSave();
@@ -28,7 +31,6 @@ private:
 	bool threadRun;
 	pthread_t saveThread;
 	LSLogCacheQueue *cacheQueue;
-	LSLogFile *logFile[LOG_NUM];
 	LSLogMemPool *memPool;
 	LSLogTemplate *logTpl;
 };
