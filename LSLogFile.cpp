@@ -144,11 +144,16 @@ bool LSLogFile::save(LSLogInfo *logInfo)
 
 	//myLog("save begin");
 	// 转成模板
+<<<<<<< HEAD
 	if (!logTpl->shrink(logInfo, &newLogItem)) {
 		myLog("faile to convert template");
 		return false;
 	}
 	//dumpStorageItem(&newLogItem);
+=======
+	if (!logTpl->shrink(logInfo, &newLogItem))
+		return false;
+>>>>>>> 396e9f98478b6724a72beb0172ab39520266f8e1
 
 	pthread_rwlock_wrlock(&rwlock);
 	//memcpy(&fileHeader, (LogFileHeader*)mapAddr, sizeof(LogFileHeader));
@@ -210,12 +215,17 @@ int LSLogFile::query(time_t from, time_t to, int blockSize, int blockIndex, stru
 	prev = NULL;
 	pthread_rwlock_rdlock(&rwlock);
 	logInfos = NULL;
+<<<<<<< HEAD
 	//memcpy(&fileHeader, (LogFileHeader*)mapAddr, sizeof(LogFileHeader));
 
 	//myLog("from %d to %d", (int)from, (int)to);
 	beginIndex = searchLeft(from);
 	endIndex = searchRight(to);
 	myLog("beginIndex=%d, endIndex=%d", beginIndex, endIndex);
+=======
+	beginIndex = searchBigerIndex(from);
+	endIndex = searchSmallerIndex(to);
+>>>>>>> 396e9f98478b6724a72beb0172ab39520266f8e1
 
 	if (endIndex >= beginIndex) {
 		totalInfo = (endIndex - beginIndex) + 1;
@@ -241,6 +251,12 @@ int LSLogFile::query(time_t from, time_t to, int blockSize, int blockIndex, stru
 			myLog("failed to expand %s", item->eventTpl);
 			memPool->free(logInfo);
 			continue;
+<<<<<<< HEAD
+=======
+		}
+		if (prev == NULL) {
+			prev = logInfo;
+>>>>>>> 396e9f98478b6724a72beb0172ab39520266f8e1
 		}
 		if (prev == NULL) {
 			logInfos = prev = logInfo;

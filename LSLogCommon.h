@@ -12,7 +12,11 @@
 #define LSLOG_MAX_EVENT_LEN  		64
 #define LSLOG_MAX_EVENT_TPL_LEN  	11
 #define LSLOG_MAX_PATH_LEN	 		128
+<<<<<<< HEAD
 #define LSLOG_MAX_LOG_NUM    		4
+=======
+#define LSLOG_MAX_LOG_NUM    		20000
+>>>>>>> 396e9f98478b6724a72beb0172ab39520266f8e1
 #define LSLOG_WORK_PATH				"log/"
 
 #define LSLOG_OPE_FILE 		"ls_ope.log"

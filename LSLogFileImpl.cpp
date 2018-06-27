@@ -54,6 +54,10 @@ bool LSLogFileImpl::log(LogType type, time_t t, char user, const char *event)
 	logInfo->user = user;
 	strcpy(logInfo->event, event);
 
+<<<<<<< HEAD
+=======
+	myLog("in queue");
+>>>>>>> 396e9f98478b6724a72beb0172ab39520266f8e1
 	// 缓存到队列，如果有消费者等待则唤醒它
 	cacheQueue->in(logInfo);
 
@@ -71,7 +75,10 @@ int LSLogFileImpl::queryLog(LogType type, time_t from, time_t to, int pageCapaci
 void LSLogFileImpl::saveLog()
 {
 	while (threadRun) {
+<<<<<<< HEAD
 		myLog("savelog run...");
+=======
+>>>>>>> 396e9f98478b6724a72beb0172ab39520266f8e1
 		// 取出缓存队列的元素, 队列空时阻塞
 		LSLogInfo *logInfo = cacheQueue->out();
 
