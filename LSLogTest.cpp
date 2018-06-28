@@ -33,7 +33,7 @@ int main()
 	init();
 
 	// start begin
-	testFile2();
+	testFile();
 
 	destroy();
 	return 0;
@@ -46,16 +46,25 @@ bool testFile2()
 
 
 //#define LSLOG_MAX_LOG_NUM    		5
-	for (i=1; i<=6; i++) {
+	for (i=1; i<=7; i++) {
 		sprintf(event, "设置-密码-%d", i);
 		log->log(OPE_LOG, i*2, (char *)"admin", event);
 	}
 
 	sleep(1);
-	log->logFile[0]->print();
+	//log->logFile[0]->print();
 	strcpy(event, "设置-密码-5");
 	log->log(OPE_LOG, 5, (char *)"admin", event);
 	sleep(1);
+	//log->logFile[0]->print();
+
+
+	for (i=8; i<=9; i++) {
+		sprintf(event, "设置-密码-%d", i);
+		log->log(OPE_LOG, i*2, (char *)"admin", event);
+	}
+	sleep(1);
+	printf("in the end\n");
 	log->logFile[0]->print();
 
 	return true;
@@ -66,7 +75,7 @@ bool testFile()
 	int i;
 	char event[32];
 
-	for (i=1; i<=4; i++) {
+	for (i=1; i<=6; i++) {
 		sprintf(event, "设置-密码-%d", i);
 		log->log(OPE_LOG, i*2, (char *)"admin", event);
 	}

@@ -8,6 +8,8 @@ class LSLogMemPool;
 
 class LSLogFile {
 	friend class LSLogTemplate;
+	friend int cmpOffset(const void * a,  const void *b);
+	friend int cmpTime(const void *a, const void *b);
 public:
 	LSLogFile(unsigned type, LSLogMemPool *pool, LSLogTemplate *tpl);
 	~LSLogFile();
@@ -25,6 +27,8 @@ private:
 	void unset(int fromIndex, int toIndex);
 
 private:
+	void sortHeaderTable(int(*cmp)(const void *, const void *));
+	short searchMapIndex(short index);
 	short search(time_t key);
 	unsigned getLogFileSize();
 	void printStorageItem(LogStorageItem *item);
@@ -33,19 +37,20 @@ private:
 
 private:
 #pragma pack(2)	
-	struct LogItemMap {
+	struct LogHeaderItem{
 		int t;
-		short index;
+		short offset;
 	};
 	struct LogFileHeader {
-		short nextMapPos;
-		LogItemMap logItemMap[LSLOG_MAX_LOG_NUM];
+		short nextIndex;
+		LogHeaderItem logHeaderTable[LSLOG_MAX_LOG_NUM];
 	};
 #pragma pack()	
 
 	unsigned logType;
+	short nextIndexAtMap;
 	FILE *logFile;
-	LogItemMap *auxItemMap;
+	LogHeaderItem *auxHeaderTable;
 	LogFileHeader fileHeader;
 	char logPath[LSLOG_MAX_PATH_LEN+1];
 	pthread_rwlock_t rwlock;
@@ -53,5 +58,9 @@ private:
 	LSLogTemplate *logTpl;	
 	LSLogMemPool *memPool;
 };
+
+
+int cmpOffset(const void * a,  const void *b);
+int cmpTime(const void * a,  const void *b);
 
 #endif
