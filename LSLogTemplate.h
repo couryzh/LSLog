@@ -28,12 +28,13 @@ private:
 	bool isLegal(const char *data);
 	void split(char *data, char *&sym, char *&ch);
 	bool addToken(char *sym, char *ch);
+	bool fillTpl(char eventTpl[], const unsigned size, int &len, const char *ch);
 	int newSym(char *tplBuf, int size, const char *sym);
 
 	void dump();
 
 private:
-	char templatePath[LSLOG_MAX_PATH_LEN];
+	char templatePath[LSLOG_MAX_PATH_LEN+1];
 	std::map<std::string, std::string> symToCh;
 	std::map<std::string, std::string> chToSym;
 	std::vector<char *> symVec;

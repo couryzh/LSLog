@@ -15,11 +15,13 @@
 
 #define LSLOG_TPL_CH_DELIMTER '-'
 
+#define LSLOG_TPL_UNKOWN_USER "uu"
+
 LSLogTemplate::LSLogTemplate()
 {
-	char tplPath[LSLOG_MAX_PATH_LEN];
+	char tplPath[LSLOG_MAX_PATH_LEN+1];
 
-	if (snprintf(tplPath, LSLOG_MAX_PATH_LEN, "%s%s", LSLOG_WORK_PATH, LSLOG_CFG_TEMPLATE) >= LSLOG_MAX_PATH_LEN) {
+	if (snprintf(tplPath, LSLOG_MAX_PATH_LEN+1, "%s%s", LSLOG_WORK_PATH, LSLOG_CFG_TEMPLATE) >= LSLOG_MAX_PATH_LEN+1) {
 		myLog("too long template path: %s%s",  LSLOG_WORK_PATH, LSLOG_CFG_TEMPLATE); 
 		exit(-1);
 	}
@@ -150,9 +152,9 @@ void LSLogTemplate::clear()
 
 void LSLogTemplate::reLoad(const char *tplFile)
 {
-	char tplPath[LSLOG_MAX_PATH_LEN];
+	char tplPath[LSLOG_MAX_PATH_LEN+1];
 
-	if (snprintf(tplPath, LSLOG_MAX_PATH_LEN, "%s%s", LSLOG_WORK_PATH, tplFile) >= LSLOG_MAX_PATH_LEN) {
+	if (snprintf(tplPath, LSLOG_MAX_PATH_LEN+1, "%s%s", LSLOG_WORK_PATH, tplFile) >= LSLOG_MAX_PATH_LEN+1) {
 		myLog("too long template path: %s%s",  LSLOG_WORK_PATH, tplFile); 
 		exit(-1);
 	}
@@ -183,53 +185,65 @@ int LSLogTemplate::newSym(char *tplBuf, int size, const char *sym)
 	return len+2;
 }
 
-bool LSLogTemplate::shrink(const LSLogInfo *logInfo, LogStorageItem *logStorageItem)
+bool LSLogTemplate::fillTpl(char eventTpl[], const unsigned size, int &len, const char *ch)
 {
 	const char *sym;
-	char *p, *p2, event[LSLOG_MAX_EVENT_LEN];
-	char eventTpl[LSLOG_MAX_EVENT_TPL_LEN];
-	int len, symLen;
+	int symLen;
 
-	logStorageItem->t = logInfo->t;
-	logStorageItem->user= logInfo->user;
+	if ((sym = shrink(ch)) == NULL) {
+		//myLog("%s: 未知文字，直接复制", ch);
+		if (strlen(ch) + len > size - 1) {
+			myLog("模板空间不足");
+			return false;
+		}
+		strcpy(&eventTpl[len], ch);
+		len += strlen(ch);
+		return true;
+	}
 
+	symLen = newSym(&eventTpl[len], size-1-len, sym);
+	if (symLen == 0) {
+		myLog("模板空间不足");
+		return false;
+	}
+	len += symLen;
+
+	return true;
+}
+
+bool LSLogTemplate::shrink(const LSLogInfo *logInfo, LogStorageItem *logStorageItem)
+{
+	const char *userSym;
+	char *p, *p2, event[LSLOG_MAX_EVENT_LEN+1];
+	char eventTpl[LSLOG_MAX_EVENT_TPL_LEN+1];
+	int len;
+
+	
 	len = 0;
-	memset(eventTpl, 0, LSLOG_MAX_EVENT_TPL_LEN);
-	memcpy(event, logInfo->event, LSLOG_MAX_EVENT_LEN); 
+	memset(eventTpl, 0, LSLOG_MAX_EVENT_TPL_LEN+1);
+	memcpy(event, logInfo->event, LSLOG_MAX_EVENT_LEN+1); 
 	for (p=event; *p != '0'; p=p2) {
-		p2 = strchr(event, LSLOG_TPL_CH_DELIMTER);
+		p2 = strchr(p, LSLOG_TPL_CH_DELIMTER);
 		if (p2 == NULL) break;
 
 		*p2++ = '\0';	
-		if ((sym = shrink(p)) == NULL) {
-			myLog("未知文字，无法转成模板");
+		if (!fillTpl(eventTpl, LSLOG_MAX_EVENT_TPL_LEN+1, len, p))
 			return false;
-		}
-
-		symLen = newSym(&eventTpl[len], LSLOG_MAX_EVENT_TPL_LEN-1-len, sym);
-		if (symLen == 0) {
-			myLog("模板空间不足");
-			return false;
-		}
-		len += symLen;
 	}
 
 	if (*p != '\0') {
-		if ((sym = shrink(p)) == NULL) {
-			myLog("未知文字，无法转成模板");
+		if (!fillTpl(eventTpl, LSLOG_MAX_EVENT_TPL_LEN+1, len, p))
 			return false;
-		}
-
-		symLen = newSym(&eventTpl[len], LSLOG_MAX_EVENT_TPL_LEN-1-len, sym);
-		if (symLen == 0) {
-			myLog("模板空间不足");
-			return false;
-		}
-		len += symLen;
 	}
-	memcpy(logStorageItem->eventTpl, eventTpl, LSLOG_MAX_EVENT_TPL_LEN);
+	memcpy(logStorageItem->eventTpl, eventTpl, LSLOG_MAX_EVENT_TPL_LEN+1);
 	logStorageItem->t = logInfo->t;
-	logStorageItem->user = logInfo->user;
+	userSym = shrink(logInfo->user);
+	if (userSym == NULL) {
+		userSym = LSLOG_TPL_UNKOWN_USER;
+	}
+	memcpy(logStorageItem->user, userSym, LSLOG_MAX_USER_TPL_LEN);
+logStorageItem->user[LSLOG_MAX_USER_TPL_LEN] = '\0';
+
 	return true;
 }
 
@@ -248,17 +262,17 @@ bool LSLogTemplate::expand(const LogStorageItem *logStorageItem, LSLogInfo *&log
 	bool inMatch; // 
 	int iPos;
 	char *sym;
-	char *p, eventTpl[LSLOG_MAX_EVENT_TPL_LEN];
+	char *p, eventTpl[LSLOG_MAX_EVENT_TPL_LEN+1];
 	const char *ch;
 
 	iPos = 0;
 	inMatch = false;
 
-	memcpy(eventTpl, logStorageItem->eventTpl, LSLOG_MAX_EVENT_TPL_LEN);
+	memcpy(eventTpl, logStorageItem->eventTpl, LSLOG_MAX_EVENT_TPL_LEN+1);
 	for (p = eventTpl; *p!= '\0'; p++) {
 		if (!inMatch) {
 			if (*p != LSLOG_TPL_SYM_START) {
-				if (iPos < LSLOG_MAX_EVENT_LEN-1) 
+				if (iPos < LSLOG_MAX_EVENT_LEN) 
 					logInfo->event[iPos++] = *p;
 			}
 			else {
@@ -272,7 +286,7 @@ bool LSLogTemplate::expand(const LogStorageItem *logStorageItem, LSLogInfo *&log
 				inMatch = false;
 				ch = expand(sym);
 				if (ch) {
-					if (strlen(ch) + iPos < LSLOG_MAX_EVENT_LEN -1) {
+					if (strlen(ch) + iPos < LSLOG_MAX_EVENT_LEN) {
 						strcpy(&logInfo->event[iPos], ch);
 						iPos += strlen(ch);
 					}
@@ -290,7 +304,10 @@ bool LSLogTemplate::expand(const LogStorageItem *logStorageItem, LSLogInfo *&log
 
 	if (*p == '\0') {
 		logInfo->t = logStorageItem->t;
-		logInfo->user = logStorageItem->user;
+		const char *userCh;
+		userCh = expand(logStorageItem->user);
+		memcpy(logInfo->user, userCh, LSLOG_MAX_USER_LEN);
+		logInfo->user[LSLOG_MAX_USER_LEN] = '\0';
 		return true;
 	}
 

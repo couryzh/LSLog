@@ -14,7 +14,7 @@ public:
 	LSLogFileImpl(LSLogMemPool *pool);
 	~LSLogFileImpl();
 
-	bool log(LogType type, time_t t, char user, const char *event);
+	bool log(LogType type, time_t t, char *user, char *event);
 	int queryLog(LogType type, time_t from, time_t to, 
 			int pageCapacity, int pageIndex, 
 			struct LSLogInfo *&logInfos);

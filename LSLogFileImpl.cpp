@@ -46,15 +46,19 @@ void * LSLogFileImpl::saveTaskThread(void *arg)
 	return NULL;
 }
 
-bool LSLogFileImpl::log(LogType type, time_t t, char user, const char *event)
+bool LSLogFileImpl::log(LogType type, time_t t, char *user, char *event)
 {
+	if (strlen(event) > LSLOG_MAX_EVENT_LEN || strlen(user) > LSLOG_MAX_USER_LEN) {
+		myLog("too long event string or user string");
+		return false;
+	}
 	LSLogInfo *logInfo = memPool->malloc();		
 	logInfo->type = type;
 	logInfo->t = t;
-	logInfo->user = user;
+	strcpy(logInfo->user, user);
 	strcpy(logInfo->event, event);
 
-	//myLog("in queue");
+	myLog("in queue: t=%d", (int)t);
 	// 缓存到队列，如果有消费者等待则唤醒它
 	cacheQueue->in(logInfo);
 
@@ -72,7 +76,7 @@ int LSLogFileImpl::queryLog(LogType type, time_t from, time_t to, int pageCapaci
 void LSLogFileImpl::saveLog()
 {
 	while (threadRun) {
-		myLog("savelog run...");
+		//myLog("savelog run...");
 		// 取出缓存队列的元素, 队列空时阻塞
 		LSLogInfo *logInfo = cacheQueue->out();
 

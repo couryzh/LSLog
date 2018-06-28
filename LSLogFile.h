@@ -16,28 +16,38 @@ public:
 	int query(time_t from, time_t to, int blockSize, int blockIndex, struct LSLogInfo *& logInfos);
 
 #if 1
-	void dump();
+	void print();
 #endif
 
 private:
-	int searchLeft(time_t key);
-	int searchRight(time_t key);
+	short searchLeft(time_t key);
+	short searchRight(time_t key);
 	void unset(int fromIndex, int toIndex);
-	unsigned getLogFileSize();
-	void dumpStorageItem(LogStorageItem *item);
 
 private:
-	struct LogFileHeader {
-		int headIndex;
-		int tailIndex;
+	short search(time_t key);
+	unsigned getLogFileSize();
+	void printStorageItem(LogStorageItem *item);
+	bool loadHeader();
+	bool dumpHeader();
+
+private:
+#pragma pack(2)	
+	struct LogItemMap {
+		int t;
+		short index;
 	};
-	
+	struct LogFileHeader {
+		short nextMapPos;
+		LogItemMap logItemMap[LSLOG_MAX_LOG_NUM];
+	};
+#pragma pack()	
+
 	unsigned logType;
-	bool isNewFile;
-	int  logFileFd;
-	void *mapAddr;
+	FILE *logFile;
+	LogItemMap *auxItemMap;
 	LogFileHeader fileHeader;
-	char logPath[LSLOG_MAX_PATH_LEN];
+	char logPath[LSLOG_MAX_PATH_LEN+1];
 	pthread_rwlock_t rwlock;
 
 	LSLogTemplate *logTpl;	

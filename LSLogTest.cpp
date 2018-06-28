@@ -5,51 +5,122 @@
 
 #include <unistd.h>
 
+bool test0();
+bool testFile();
+bool testFile2();
+
+
+
+// ---------------------------------------
+LSLogMemPool *pool;
+LSLogFileImpl *log;
+
+
+void init()
+{
+	pool = new LSLogMemPool(10);
+	log = new LSLogFileImpl(pool);
+}
+
+void destroy()
+{
+	delete pool;
+	delete log;
+}
+
 int main()
+{
+	init();
+
+	// start begin
+	testFile2();
+
+	destroy();
+	return 0;
+}
+
+bool testFile2()
+{
+	int i;
+	char event[32];
+
+
+//#define LSLOG_MAX_LOG_NUM    		5
+	for (i=1; i<=6; i++) {
+		sprintf(event, "设置-密码-%d", i);
+		log->log(OPE_LOG, i*2, (char *)"admin", event);
+	}
+
+	sleep(1);
+	log->logFile[0]->print();
+	strcpy(event, "设置-密码-5");
+	log->log(OPE_LOG, 5, (char *)"admin", event);
+	sleep(1);
+	log->logFile[0]->print();
+
+	return true;
+}
+
+bool testFile()
+{
+	int i;
+	char event[32];
+
+	for (i=1; i<=4; i++) {
+		sprintf(event, "设置-密码-%d", i);
+		log->log(OPE_LOG, i*2, (char *)"admin", event);
+	}
+
+	sleep(1);
+	log->logFile[0]->print();
+	strcpy(event, "设置-密码-5");
+	log->log(OPE_LOG, 5, (char *)"admin", event);
+	sleep(1);
+	log->logFile[0]->print();
+
+	return true;
+}
+
+bool test0()
 {
 	int total;
 	int t, ts, te;
 	LSLogInfo *logInfo, *p;
-	LSLogMemPool *pool = new LSLogMemPool(10);
-	LSLogFileImpl *log = new LSLogFileImpl(pool);		
-	
-	ts = t = 2;
-	log->log(OPE_LOG, t, 1, "设置-密码");
-	log->log(CFG_LOG, t, 2, "设置-密码");
 
-	sleep(3);
+	ts = t = 2;
+	log->log(OPE_LOG, t, (char *)"admin", (char*)"设置-密码-1");
+
 	t += 3;
-	log->log(OPE_LOG, t, 1, "设置-用户");
+	log->log(OPE_LOG, t, (char *)"admin", (char*)"设置-用户-2");
 	te = t+1;
 
-	sleep(2);
+	//sleep(2);
 	t += 2;
-	log->log(OPE_LOG, t, 1, "设置-密码");
-	log->logFile[0]->dump();
+	log->log(OPE_LOG, t, (char*)"admin", (char*)"设置-密码");
 
-	sleep(3);
+	//sleep(3);
 	t += 3;
-	log->log(OPE_LOG, te, 1, "设置-用户");
-	log->logFile[0]->dump();
+	log->log(OPE_LOG, t, (char *)"admin", (char*)"设置-用户");
 
 	sleep(1);
+	log->logFile[0]->print();
+
 	t += 1;
-	log->log(OPE_LOG, t, 1, "设置-用户");
+	log->log(OPE_LOG, te, (char*)"ls", (char*)"设置-密码");
+#if 0
+#endif
 
 	sleep(2);
-	log->logFile[0]->dump();
-	log->logFile[1]->dump();
+	log->logFile[0]->print();
+	//log->logFile[1]->print();
 
 	total = log->queryLog(OPE_LOG, ts, te, 2, 1, logInfo);
 	printf("query %d-%d\n", ts, te);
 	printf("total: %d\n", total);
 	for (p=logInfo; p != NULL; p=p->next) {
-		printf("%5d %2d %s\n", (int)(p->t), p->user, p->event);
+		printf("%5d %s %s\n", (int)(p->t), p->user, p->event);
 	}
 	printf("\n");
 
-	delete pool;
-	delete log;
-	
-	return 0;
+	return true;
 }
