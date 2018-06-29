@@ -303,8 +303,10 @@ bool LSLogTemplate::expand(const LogStorageItem *logStorageItem, LSLogInfo *&log
 	}
 
 	if (*p == '\0') {
-		logInfo->t = logStorageItem->t;
+		logInfo->event[iPos] = '\0';
+
 		const char *userCh;
+		logInfo->t = logStorageItem->t;
 		userCh = expand(logStorageItem->user);
 		memcpy(logInfo->user, userCh, LSLOG_MAX_USER_LEN);
 		logInfo->user[LSLOG_MAX_USER_LEN] = '\0';

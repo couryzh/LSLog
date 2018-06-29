@@ -16,7 +16,7 @@
  */
 
 // 最大日志条数
-#define LSLOG_MAX_LOG_NUM    		5
+#define LSLOG_MAX_LOG_NUM    		12
 
 // 日志信息最大长度
 #define LSLOG_MAX_EVENT_LEN  		64
@@ -25,7 +25,7 @@
 #define LSLOG_MAX_USER_LEN			8
 
 // 信息模板最大长度
-#define LSLOG_MAX_EVENT_TPL_LEN  	11
+#define LSLOG_MAX_EVENT_TPL_LEN  	18
 
 // 用户名模板最大长度
 #define LSLOG_MAX_USER_TPL_LEN  	2
