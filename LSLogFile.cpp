@@ -30,7 +30,7 @@
 
 
 LSLogFile::LSLogFile(unsigned type, LSLogMemPool *pool, LSLogTemplate *tpl)
-	: logTpl(tpl), memPool(pool)
+	: logType(type), logTpl(tpl), memPool(pool)
 {
 	unsigned logFileSize;
 	const char *fileName;
@@ -119,7 +119,8 @@ bool LSLogFile::save(LSLogInfo *logInfo)
 	LogStorageItem newLogItem;
 
 	// 转成模板
-	logTpl->shrink(logInfo, &newLogItem);
+	if (!logTpl->shrink(logInfo, &newLogItem))
+		return false;
 
 	pthread_rwlock_wrlock(&rwlock);
 	LogStorageItem *lastLogItem = ITEM_LAST_PTR(mapAddr, fileHeader);
@@ -155,6 +156,7 @@ int LSLogFile::query(time_t from, time_t to, int blockSize, int blockIndex, stru
 
 	prev = NULL;
 	pthread_rwlock_rdlock(&rwlock);
+	logInfos = NULL;
 	beginIndex = searchBigerIndex(from);
 	endIndex = searchSmallerIndex(to);
 
@@ -178,7 +180,11 @@ int LSLogFile::query(time_t from, time_t to, int blockSize, int blockIndex, stru
 
 		item = ITEM_AT(mapAddr, index);
 		logInfo = memPool->malloc();	
-		logTpl->expand(item, logInfo);
+		if (!logTpl->expand(item, logInfo)) {
+			myLog("failed to expand %s", item->eventTpl);
+			memPool->free(logInfo);
+			continue;
+		}
 		if (prev == NULL) {
 			prev = logInfo;
 		}

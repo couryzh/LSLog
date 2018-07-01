@@ -9,10 +9,11 @@
 #include <list>
 #include <fcntl.h>
 
-#define LSLOG_MAX_EVENT_LEN  64
-#define LSLOG_MAX_PATH_LEN	 128
-#define LSLOG_MAX_LOG_NUM    20000
-#define LSLOG_WORK_PATH		"log/"
+#define LSLOG_MAX_EVENT_LEN  		64
+#define LSLOG_MAX_EVENT_TPL_LEN  	11
+#define LSLOG_MAX_PATH_LEN	 		128
+#define LSLOG_MAX_LOG_NUM    		20000
+#define LSLOG_WORK_PATH				"log/"
 
 #define LSLOG_OPE_FILE 		"ls_ope.log"
 #define LSLOG_CFG_FILE 		"ls_cfg.log"
@@ -40,7 +41,7 @@ struct LSLogInfo {
 struct LogStorageItem {
 	time_t t;
 	char user;
-	char eventTpl[11];
+	char eventTpl[LSLOG_MAX_EVENT_TPL_LEN];
 };
 
 #endif

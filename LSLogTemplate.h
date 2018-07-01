@@ -17,11 +17,10 @@ public:
 
 	void reLoad(const char *tplFile);
 
-	const char *shrink(char *ch);
-	void shrink(const LSLogInfo *logInfo, LogStorageItem *logStorageItem);
-	const char *expand(char *sym);
-	void expand(const LogStorageItem *logStorageItem, LSLogInfo *&logInfo);
-
+	const char *shrink(const char *ch);
+	bool shrink(const LSLogInfo *logInfo, LogStorageItem *logStorageItem);
+	const char *expand(const char *sym);
+	bool expand(const LogStorageItem *logStorageItem, LSLogInfo *&logInfo);
 
 private:
 	void load(const char *tplFile);
@@ -29,6 +28,7 @@ private:
 	bool isLegal(const char *data);
 	void split(char *data, char *&sym, char *&ch);
 	bool addToken(char *sym, char *ch);
+	int newSym(char *tplBuf, int size, const char *sym);
 
 	void dump();
 
