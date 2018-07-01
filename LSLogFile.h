@@ -26,6 +26,7 @@ private:
 		bool loopCover;
 	};
 	
+	unsigned logType;
 	bool isNewFile;
 	int  logFileFd;
 	void *mapAddr;

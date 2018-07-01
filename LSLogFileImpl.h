@@ -11,17 +11,18 @@ class LSLogCacheQueue;
 
 class LSLogFileImpl : public LSLog {
 public:
-	enum {defaultMemPoolSize = 32};
 	LSLogFileImpl(LSLogMemPool *pool);
 	~LSLogFileImpl();
 
 	bool log(LogType type, time_t t, char user, const char *event);
-	int queryLog(time_t from, time_t to, int pageCapacity,
-			int pageIndex, struct LSLogInfo *&logInfos);
+	int queryLog(LogType type, time_t from, time_t to, 
+			int pageCapacity, int pageIndex, 
+			struct LSLogInfo *&logInfos);
 	static  void * saveTaskThread(void *arg);
 
 private:
 	void saveLog();
+	void stopSave();
 
 private:
 	bool threadRun;
