@@ -54,6 +54,7 @@ bool LSLogFileImpl::log(LogType type, time_t t, char user, const char *event)
 	logInfo->user = user;
 	strcpy(logInfo->event, event);
 
+	myLog("in queue");
 	// 缓存到队列，如果有消费者等待则唤醒它
 	cacheQueue->in(logInfo);
 

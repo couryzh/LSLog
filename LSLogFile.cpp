@@ -149,7 +149,7 @@ bool LSLogFile::save(LSLogInfo *logInfo)
 		return false;
 	}
 	//dumpStorageItem(&newLogItem);
-	
+
 	pthread_rwlock_wrlock(&rwlock);
 	//memcpy(&fileHeader, (LogFileHeader*)mapAddr, sizeof(LogFileHeader));
 
