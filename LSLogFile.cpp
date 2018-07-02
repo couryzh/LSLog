@@ -113,7 +113,8 @@ void LSLogFile::unset(int fromIndex, int toIndex)
 	int i;
 	LogStorageItem  *item;
 
-	if (fromIndex < toIndex) {
+	myLog("unset from %d to %d", fromIndex, toIndex);
+	if (fromIndex <= toIndex) {
 		for (i=fromIndex; i<=toIndex; i++) {
 			item = ITEM_AT(mapAddr, i);
 			item->t = 0;
@@ -256,45 +257,45 @@ int LSLogFile::query(time_t from, time_t to, int blockSize, int blockIndex, stru
 
 int LSLogFile::searchLeft(time_t key)
 {
-	int i;
+	int i, last;
 	LogStorageItem  *item;
 
 	if (fileHeader.headIndex < 0 || fileHeader.tailIndex < 0) 
 		return 0;
-	item = ITEM_AT(mapAddr, fileHeader.headIndex);
-	if (item->t > key)
-		return fileHeader.headIndex;
 
-	for (i=fileHeader.headIndex; i != fileHeader.tailIndex; i=LSLOG_INC(i)) {
-		item = ITEM_AT(mapAddr, i);
-		if (item->t > key)
-			return i;
-	}
-	return LAST_ITEM(fileHeader);
-}
-
-int LSLogFile::searchRight(time_t key)
-{
-	int i, last, next;
-	LogStorageItem  *item;
-
-	if (fileHeader.headIndex < 0 || fileHeader.tailIndex < 0) 
-		return 0;
 	last = LAST_ITEM(fileHeader);
 	item = ITEM_AT(mapAddr, last);
 	if (item->t <= key)
 		return last;
 
-	next = -1;
+	for (i=fileHeader.headIndex; i != fileHeader.tailIndex; i=LSLOG_INC(i)) {
+		item = ITEM_AT(mapAddr, i);
+		if (item->t > key)
+			break;
+	}
+	return i;
+}
+
+int LSLogFile::searchRight(time_t key)
+{
+	int i;
+	LogStorageItem  *item;
+
+	if (fileHeader.headIndex < 0 || fileHeader.tailIndex < 0) 
+		return 0;
+
+	item = ITEM_AT(mapAddr, fileHeader.headIndex);
+	if (item->t > key)
+		return fileHeader.headIndex;
+
 	for (i=LAST_ITEM(fileHeader); i!= fileHeader.headIndex; i=LSLOG_DEC(i)) {
 		item = ITEM_AT(mapAddr, i);
-		if (item->t < key) {
-			return i;
+		if (item->t <= key) {
+			break;
 		}
-		next = i;
 	}
 
-	return next;
+	return i;
 }
 
 #if 1

@@ -25,10 +25,12 @@ int main()
 	sleep(2);
 	t += 2;
 	log->log(OPE_LOG, t, 1, "设置-密码");
+	log->logFile[0]->dump();
 
 	sleep(3);
 	t += 3;
 	log->log(OPE_LOG, te, 1, "设置-用户");
+	log->logFile[0]->dump();
 
 	sleep(1);
 	t += 1;
