@@ -2,14 +2,13 @@
 #define LSLOGFILEIMPL_H
 
 #include <pthread.h>
-#include "LSLog.h"
 
 class LSLogFile;
 class LSLogTemplate;
 class LSLogMemPool;
 class LSLogCacheQueue;
 
-class LSLogFileImpl : public LSLog {
+class LSLogFileImpl {
 public:
 	LSLogFileImpl(LSLogMemPool *pool);
 	~LSLogFileImpl();

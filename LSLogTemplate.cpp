@@ -2,9 +2,8 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <ctype.h>
-#include "LSLogTemplate.h"
-#include "LSLogFile.h"
 #include "log.h"
+#include "LSLogTemplate.h"
 
 // 符号最大长度
 #define LSLOG_TEMPLATE_MAX_SYM_LEN  4
@@ -28,6 +27,11 @@ LSLogTemplate::LSLogTemplate()
 	load(tplPath);
 }
 
+LSLogTemplate::~LSLogTemplate()
+{
+	clear();
+}
+
 void LSLogTemplate::load(const char *tplFile)
 {
 	char line[64];
@@ -43,7 +47,7 @@ void LSLogTemplate::load(const char *tplFile)
 	}
 
 	while (fgets(line, 64, tplFp)) {
-		if (!isLegal(line)) continue;		
+		if (!isLegalTpl(line)) continue;
 
 		split(line, sym, ch);	
 		if (sym == NULL || ch == NULL) continue;
@@ -54,6 +58,36 @@ void LSLogTemplate::load(const char *tplFile)
 	fclose(tplFp);
 
 	//dump();
+}
+
+void LSLogTemplate::clear()
+{
+	symToCh.clear();
+	chToSym.clear();
+
+	std::vector<char *>::iterator it = symVec.begin();
+	while (it != symVec.end()) {
+		delete [] (*it);
+		++it;
+	}
+
+	it = chVec.begin();
+	while (it != chVec.end()) {
+		delete [] (*it);
+		++it;
+	}
+}
+
+void LSLogTemplate::reLoad(const char *tplFile)
+{
+	char tplPath[LSLOG_MAX_PATH_LEN+1];
+
+	if (snprintf(tplPath, LSLOG_MAX_PATH_LEN+1, "%s%s", LSLOG_WORK_PATH, tplFile) >= LSLOG_MAX_PATH_LEN+1) {
+		myLog("too long template path: %s%s",  LSLOG_WORK_PATH, tplFile);
+		exit(-1);
+	}
+	clear();
+	load(tplPath);
 }
 
 bool LSLogTemplate::addToken(char *sym, char *ch)
@@ -106,7 +140,7 @@ void LSLogTemplate::split(char *data, char *&sym, char *&ch)
 	}
 }
 
-bool LSLogTemplate::isLegal(const char *data)
+bool LSLogTemplate::isLegalTpl(const char *data)
 {
 	const char *p;
 	
@@ -127,39 +161,31 @@ bool LSLogTemplate::isLegal(const char *data)
 	return true;
 }
 
-LSLogTemplate::~LSLogTemplate()
+bool LSLogTemplate::isLegalEvent(const char *eventSym)
 {
-	clear();
-}
+	char *p, *p1, *p2;
+	char eventTpl[LSLOG_MAX_EVENT_TPL_LEN+1];
+	strcpy(eventTpl, eventSym);
 
-void LSLogTemplate::clear()
-{
-	symToCh.clear();
-	chToSym.clear();
+	/* 检查{n3}这种模板
+	 * 1) 格式是否完整 例如没有'}'
+	 * 2) n3是否存在对应文字
+	 */
+	for (p=eventTpl; *p!= '\0'; p=p2) {
+		// 其他非模板文字，合法
+		if ((p1=strchr(p, LSLOG_TPL_SYM_START)) == NULL)
+			break;
+		// 1)
+		if ((p1[1]) == '0') return false;
+		if ((p2 = strchr(p1+1, LSLOG_TPL_SYM_END)) == NULL)
+			return false;
+		*p2++ = '\0';
 
-	std::vector<char *>::iterator it = symVec.begin();
-	while (it != symVec.end()) {
-		delete [] (*it);
-		++it;
+		// 2)
+		if (expand(p1+1) == NULL) return false;
 	}
 
-	it = chVec.begin();
-	while (it != chVec.end()) {
-		delete [] (*it);
-		++it;
-	}
-}
-
-void LSLogTemplate::reLoad(const char *tplFile)
-{
-	char tplPath[LSLOG_MAX_PATH_LEN+1];
-
-	if (snprintf(tplPath, LSLOG_MAX_PATH_LEN+1, "%s%s", LSLOG_WORK_PATH, tplFile) >= LSLOG_MAX_PATH_LEN+1) {
-		myLog("too long template path: %s%s",  LSLOG_WORK_PATH, tplFile); 
-		exit(-1);
-	}
-	clear();
-	load(tplPath);
+	return true;
 }
 
 const char *LSLogTemplate::shrink(const char *ch)

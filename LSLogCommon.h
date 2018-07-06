@@ -9,14 +9,13 @@
 #include <list>
 #include <fcntl.h>
 
-
 /*
  * 日志模块
  *
  */
 
 // 最大日志条数
-#define LSLOG_MAX_LOG_NUM    		12
+#define LSLOG_MAX_LOG_NUM    		4
 
 // 日志信息最大长度
 #define LSLOG_MAX_EVENT_LEN  		64
@@ -52,7 +51,6 @@
 // 模板只加不删，否则原有信息将无法解读
 #define LSLOG_CFG_TEMPLATE 	"ls.tpl"
 
-
 enum LogType {
 	OPE_LOG, 	// 操作日志
 	CFG_LOG, 	// 配置日志
@@ -67,12 +65,6 @@ struct LSLogInfo {
 	char user[LSLOG_MAX_USER_LEN+1];
 	char event[LSLOG_MAX_EVENT_LEN+1];
 	struct LSLogInfo *next;
-};
-
-struct LogStorageItem {
-	time_t t;
-	char user[LSLOG_MAX_USER_TPL_LEN+1];
-	char eventTpl[LSLOG_MAX_EVENT_TPL_LEN+1];
 };
 
 #endif

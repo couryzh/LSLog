@@ -1,7 +1,6 @@
-#include "LSLog.h"
 #include "LSLogMemPool.h"
 #include "LSLogFileImpl.h"
-#include "LSLogFile.h"
+//#include "LSLogFile.h"
 
 #include <string.h>
 #include <unistd.h>
@@ -26,7 +25,7 @@ void query(int from, int to, int cap, int index)
 	int total;
 	LSLogInfo *logInfo, *p;
 
-	//log->logFile[0]->printFile();
+	//log->logFile[0]->printHeader();
 	
 	total = log->queryLog(OPE_LOG, from, to, cap, index, logInfo);
 	printf("query %d-%d\n", from, to);

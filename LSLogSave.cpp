@@ -1,4 +1,3 @@
-#include "LSLog.h"
 #include "LSLogMemPool.h"
 #include "LSLogFileImpl.h"
 #include "LSLogFile.h"
@@ -27,15 +26,14 @@ bool save()
 	int i;
 	char event[32];
 
-	for (i=1; i<=20; i++) {
+	for (i=1; i<=5; i++) {
 		sprintf(event, "设置-密码-%d", i);
 		log->log(OPE_LOG, i*2, (char *)"admin", event);
 	}
 
 	sleep(3);
-	log->log(OPE_LOG, 25, (char *)"admin", (char *)"设置-密码-25");
+	log->log(OPE_LOG, 5, (char *)"admin", (char*)"设置-密码-5");
 	sleep(1);
-	log->logFile[0]->printFile();
 
 	return true;
 }

@@ -1,7 +1,6 @@
-#include "LSLog.h"
 #include "LSLogMemPool.h"
 #include "LSLogFileImpl.h"
-#include "LSLogFile.h"
+//#include "LSLogFile.h"
 
 #include <unistd.h>
 
@@ -79,11 +78,11 @@ bool testFile2()
 	}
 
 	sleep(1);
-	//log->logFile[0]->printFile();
+	//log->logFile[0]->printHeader();
 	strcpy(event, "设置-密码-5");
 	log->log(OPE_LOG, 5, (char *)"admin", event);
 	sleep(1);
-	//log->logFile[0]->printFile();
+	//log->logFile[0]->printHeader();
 
 
 	for (i=8; i<=9; i++) {
@@ -92,7 +91,7 @@ bool testFile2()
 	}
 	sleep(1);
 	printf("in the end\n");
-	log->logFile[0]->printFile();
+	//log->logFile[0]->printHeader();
 
 	return true;
 }
@@ -112,12 +111,12 @@ bool testFile()
 	sleep(1);
 
 	/*
-	log->logFile[0]->printFile();
+	log->logFile[0]->printHeader();
 	strcpy(event, "设置-密码-5");
 	log->log(OPE_LOG, 5, (char *)"admin", event);
 	sleep(1); */
 
-	log->logFile[0]->printFile();
+	//log->logFile[0]->printHeader();
 
 	ts =2; te=6;
 	total = log->queryLog(OPE_LOG, ts, te, 2, 1, logInfo);
@@ -153,7 +152,7 @@ bool test0()
 	log->log(OPE_LOG, t, (char *)"admin", (char*)"设置-用户");
 
 	sleep(1);
-	log->logFile[0]->printFile();
+	//log->logFile[0]->printHeader();
 
 	t += 1;
 	log->log(OPE_LOG, te, (char*)"ls", (char*)"设置-密码");
@@ -161,8 +160,8 @@ bool test0()
 #endif
 
 	sleep(2);
-	log->logFile[0]->printFile();
-	//log->logFile[1]->printFile();
+	//log->logFile[0]->printHeader();
+	//log->logFile[1]->printHeader();
 
 	total = log->queryLog(OPE_LOG, ts, te, 2, 1, logInfo);
 	printf("query %d-%d\n", ts, te);

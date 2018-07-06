@@ -13,20 +13,16 @@
 
 #define HDR_SIZE			sizeof(struct LogFileHeader)
 #define ITEM_SIZE 			sizeof(LogStorageItem)
-#define HDR_MAP_OFF(index)  sizeof(short) + sizeof(LogHeaderItem) * index
+#define HDR_MAP_OFF(index)  sizeof(short) * 2 + sizeof(LogHeaderItem) * index
 #define ITEM_OFF(index)		HDR_SIZE + sizeof(LogStorageItem) * index
-#define LAST_INDEX(hdr)     LSLOG_DEC(hdr.nextIndex)
-
 #define INVALID_T			0
 
-
-#define LSLOG_PERM 					S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH
-
+#define LSLOG_PERM 			S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH
 
 LSLogFile::LSLogFile(unsigned type, LSLogMemPool *pool, LSLogTemplate *tpl)
 	: logType(type), logTpl(tpl), memPool(pool)
 {
-	//unsigned logFileSize;
+	unsigned logFileSize;
 	const char *fileName;
 	bool isNewFile;
 
@@ -53,51 +49,36 @@ LSLogFile::LSLogFile(unsigned type, LSLogMemPool *pool, LSLogTemplate *tpl)
 		exit(-1);
 	}
 
-	if (access(logPath, F_OK) < 0) {
-		isNewFile = true;
-	}
-	else {
-		isNewFile = false;
-	}
+	isNewFile = (access(logPath, F_OK) < 0) ? true : false;
 	logFileFd = open(logPath, O_RDWR | O_CREAT, LSLOG_PERM);
 	if (logFileFd < 0) {
 		myLogErr("creat %s failed", logPath);
 		exit(-1);
 	}
 
-	/*
+	// 若为新建文件，设置文件大小
 	logFileSize = getLogFileSize();
-	logFileFd = fileno(logFile);
 	if (isNewFile && ftruncate(logFileFd, logFileSize) < 0) {
-		fclose(logFile);
+		close(logFileFd);
 		myLog("expand logfile size to %u", logFileSize);
 		exit(-1);
-	} */
+	}
 
 	pthread_rwlock_init(&rwlock, NULL);
 
 	if (isNewFile) {
-		int i;
-		myLog("isNewFile=true");
-		fileHeader.nextIndex= 0;
-		for (i=0; i<LSLOG_MAX_LOG_NUM; i++) {
+		fileHeader.minIndex = fileHeader.maxIndex = 0;
+		for (int i=0; i<LSLOG_MAX_LOG_NUM; i++) {
 			fileHeader.logHeaderTable[i].t = INVALID_T;
 			fileHeader.logHeaderTable[i].offset = i;
 		}
 		dumpHeader();
 	}
 	else {
-		myLog("loadHeader()");
 		if (!loadHeader()) {
 			myLog("failed to laodHeader()");
 			exit(-1);
 		}
-	}
-
-	auxHeaderTable= new LogHeaderItem[LSLOG_MAX_LOG_NUM/2 + 1];
-	if (auxHeaderTable == NULL) {
-		myLog("alloc auxHeaderTable failed");
-		exit(-1);
 	}
 }
 
@@ -110,46 +91,11 @@ LSLogFile::~LSLogFile()
 	//myLog("destruct LSLogTemplate");
 }
 
-void LSLogFile::sortHeaderTable(int(*cmp)(const void *, const void *))
-{
-	qsort(fileHeader.logHeaderTable, LSLOG_MAX_LOG_NUM, sizeof(LogHeaderItem), cmp);
-}
-
-short LSLogFile::searchMapIndex(short index)
-{
-	void *matchPtr;
-	LogHeaderItem headerItem;
-
-	headerItem.t = 0;
-	headerItem.offset = index;
-	
-	myLog("search offset=%hd", index);
-	matchPtr = bsearch(&headerItem, fileHeader.logHeaderTable, LSLOG_MAX_LOG_NUM, sizeof(LogHeaderItem), cmpOffset);
-	assert(matchPtr != NULL);
-	return ((LogHeaderItem *)matchPtr - fileHeader.logHeaderTable) / sizeof(LogHeaderItem) + 1;
-}
-
-
 bool LSLogFile::loadHeader()
 {
 	lseek(logFileFd, 0, SEEK_SET);
 
 	return read(logFileFd, &fileHeader, sizeof(LogFileHeader)) == sizeof(LogFileHeader);
-	/*
-	if (fread(&fileHeader.nextIndex, sizeof(short), 1, logFile) < 1) {
-		perror("fread");
-		return  false;
-	}
-	for (int i=0; i<LSLOG_MAX_LOG_NUM; i++) {
-		if (fread(&fileHeader.logHeaderTable[i], sizeof(LogHeaderItem), 1, logFile) < 1) {
-			perror("fread");
-			return  false;
-		}
-	}
-
-	sortHeaderTable(cmpOffset); // 已保证存入时是排序的， 这里有必要吗?
-	printFile();
-	return true; */
 }
 
 bool LSLogFile::dumpHeader()
@@ -163,41 +109,9 @@ unsigned LSLogFile::getLogFileSize()
 	return HDR_SIZE + LSLOG_MAX_LOG_NUM * ITEM_SIZE;
 }
 
-void LSLogFile::unset(int fromIndex, int toIndex)
-{
-#if 0
-	int i;
-	LogStorageItem  *item;
-
-	myLog("unset from %d to %d", fromIndex, toIndex);
-	if (fromIndex <= toIndex) {
-		for (i=fromIndex; i<=toIndex; i++) {
-			item = ITEM_AT(mapAddr, i);
-			item->t = 0;
-		}
-	}
-	else {
-		for (i=fromIndex; i<LSLOG_MAX_LOG_NUM_; i++) {
-			item = ITEM_AT(mapAddr, i);
-			item->t = 0;
-		}
-
-		for (i=0; i<=toIndex; i++) {
-			item = ITEM_AT(mapAddr, i);
-			item->t = 0;
-		}
-	}
-#endif
-}
-
-void LSLogFile::printStorageItem(LogStorageItem *item)
-{
-	printf("t: %d user: %s tpl: %s\n", (int)item->t, item->user, item->eventTpl);
-}
-
 bool LSLogFile::save(LSLogInfo *logInfo)
 {
-	short newIndex, lastIndex;
+	short nextIndex, newIndex;
 	long itemOffset;
 	LogStorageItem newLogItem;
 
@@ -208,40 +122,28 @@ bool LSLogFile::save(LSLogInfo *logInfo)
 		myLog("faile to convert template");
 		return false;
 	}
-	//printStorageItem(&newLogItem);
 
 	pthread_rwlock_wrlock(&rwlock);
-
-	lastIndex = LAST_INDEX(fileHeader);
-	//myLog("nextIndex: %hd,  lastIndex: %hd", fileHeader.nextIndex, lastIndex);
-	if (newLogItem.t < fileHeader.logHeaderTable[lastIndex].t) {
+	if (newLogItem.t < fileHeader.logHeaderTable[fileHeader.maxIndex].t) {
+		// 查找此时刻对应index
 		newIndex = search(newLogItem.t);
 		myLog("find new insert index %hd for t=%d", newIndex, (int)newLogItem.t);
 
-		// clear newer time item
-		for (short i=newIndex; i!=LSLOG_DEC(newIndex); i=LSLOG_INC(i)) {
-			if (fileHeader.logHeaderTable[i].t < newLogItem.t) break;
-			fileHeader.logHeaderTable[i].t = INVALID_T;
-		}
-
-		// save incoming item
+		// 保存信息
 		itemOffset = ITEM_OFF(newIndex);
 		lseek(logFileFd, itemOffset, SEEK_SET);
 		write(logFileFd, &newLogItem, sizeof(LogStorageItem));
 
+		// 更新文件头
 		fileHeader.logHeaderTable[newIndex].t = (int)newLogItem.t;
-		fileHeader.nextIndex = LSLOG_INC(newIndex);
-		myLog("update, nextIndex=%hd", fileHeader.nextIndex);
-//		if (lseek(logFileFd, 0, SEEK_SET) == 0)
-//			write(logFileFd, &fileHeader.nextIndex, sizeof(short));
-//		else
-//			myLog("fseek to SEEK_SET:0 failed");
-//
+		fileHeader.maxIndex = newIndex;
+		myLog("update, maxIndex=%hd", fileHeader.maxIndex);
 		dumpHeader();
 	}
 	else {
-		// save incoming item directly
-		itemOffset = ITEM_OFF(fileHeader.nextIndex);
+		// 更大的时标，直接添加到maxIndex后
+		nextIndex = LSLOG_INC(fileHeader.maxIndex);
+		itemOffset = ITEM_OFF(nextIndex);
 		if (lseek(logFileFd, itemOffset, SEEK_SET) == (off_t)-1) {
 			myLogErr("lseek");
 		}
@@ -249,25 +151,25 @@ bool LSLogFile::save(LSLogInfo *logInfo)
 			write(logFileFd, &newLogItem, sizeof(LogStorageItem));
 		}
 
-		fileHeader.logHeaderTable[fileHeader.nextIndex].t = newLogItem.t;
-		myLog("%d %hd", fileHeader.logHeaderTable[fileHeader.nextIndex].t,
-					fileHeader.logHeaderTable[fileHeader.nextIndex].offset);
-		if (lseek(logFileFd, HDR_MAP_OFF(fileHeader.nextIndex), SEEK_SET) == (off_t)-1)
+		fileHeader.logHeaderTable[nextIndex].t = newLogItem.t;
+		if (lseek(logFileFd, HDR_MAP_OFF(nextIndex), SEEK_SET) == (off_t)-1)
 			myLogErr("lseek");
 		else { 
-			myLog("%d %hd", fileHeader.logHeaderTable[fileHeader.nextIndex].t,
-					fileHeader.logHeaderTable[fileHeader.nextIndex].offset);
-			write(logFileFd, &fileHeader.logHeaderTable[fileHeader.nextIndex], sizeof(LogHeaderItem));
+			write(logFileFd, &fileHeader.logHeaderTable[nextIndex], sizeof(LogHeaderItem));
 		}
-		fileHeader.nextIndex = LSLOG_INC(fileHeader.nextIndex); 
-		if (lseek(logFileFd, 0, SEEK_SET) == (off_t)-1) {
-			myLogErr("lseek");
+		fileHeader.maxIndex = nextIndex;
+
+		if (fileHeader.maxIndex == fileHeader.minIndex) {
+			fileHeader.minIndex = LSLOG_INC(fileHeader.minIndex);
+			lseek(logFileFd, 0, SEEK_SET);
+			write(logFileFd, &fileHeader.minIndex, sizeof(short));
+			write(logFileFd, &fileHeader.maxIndex, sizeof(short));
 		}
 		else {
-			write(logFileFd, &fileHeader.nextIndex, sizeof(short));
+			lseek(logFileFd, sizeof(short), SEEK_SET);
+			write(logFileFd, &fileHeader.maxIndex, sizeof(short));
 		}
-		myLog("nextIndex=%d offset=%d", fileHeader.nextIndex, HDR_MAP_OFF(fileHeader.nextIndex));
-
+		myLog("minIndex=%hd maxIndex=%hd", fileHeader.minIndex, fileHeader.maxIndex);
 	}
 	pthread_rwlock_unlock(&rwlock);
 
@@ -294,6 +196,7 @@ int LSLogFile::query(time_t from, time_t to, int blockSize, int blockIndex, stru
 	}
 	myLog("beginIndex=%d, endIndex=%d", beginIndex, endIndex);
 
+	// 开始，结束之间的长度，这里代表查询到的总条数
 	if (endIndex >= beginIndex) {
 		totalInfo = (endIndex - beginIndex) + 1;
 	}
@@ -304,9 +207,12 @@ int LSLogFile::query(time_t from, time_t to, int blockSize, int blockIndex, stru
 	// 得到指定的记录
 	offIndex = (blockIndex - 1) * blockSize;
 	for (i=0; i<blockSize; i++) {
+		// 防止查询越界
+		if (offIndex + i >= totalInfo) break;
+
 		index = (beginIndex + offIndex + i) % LSLOG_MAX_LOG_NUM; 
-		if (endIndex >= beginIndex && index > endIndex) break;
-		if (beginIndex > endIndex && (index > endIndex && index < beginIndex)) break;
+		myLog("index=%hd", index);
+
 		offset = ITEM_OFF(index);
 		lseek(logFileFd, offset, SEEK_SET);
 		if (read(logFileFd, &item, sizeof(LogStorageItem)) != sizeof(LogStorageItem)) {
@@ -314,12 +220,13 @@ int LSLogFile::query(time_t from, time_t to, int blockSize, int blockIndex, stru
 			continue;
 		}
 		logInfo = memPool->malloc();	
+		// 扩展模板
 		if (!logTpl->expand(&item, logInfo)) {
 			myLog("failed to expand %s", item.eventTpl);
 			memPool->free(logInfo);
 			continue;
 		}
-		myLog("expand: %s -> %s", item.eventTpl, logInfo->event);
+		//myLog("expand: %s -> %s", item.eventTpl, logInfo->event);
 		if (prev == NULL) {
 			logInfos = prev = logInfo;
 			continue;
@@ -332,45 +239,33 @@ int LSLogFile::query(time_t from, time_t to, int blockSize, int blockIndex, stru
 	return totalInfo;
 }
 
-void LSLogFile::printHeader()
-{
-	int i;
-	LogHeaderItem *headerItem;
-
-	printf("%d ----------------------------\n"
-		   "nextIndex: %d\n", logType, fileHeader.nextIndex);
-	for (i=0; i<LSLOG_MAX_LOG_NUM; i++) {
-		headerItem = &fileHeader.logHeaderTable[i];
-		printf("t: %d index: %hd\n", 
-				headerItem->t, headerItem->offset);
-	}
-}
-
 bool LSLogFile::searchRange(time_t from, time_t to, short &left, short &right)
 {
-	short i, headIndex, tailIndex;
-	if (fileHeader.logHeaderTable[fileHeader.nextIndex].t == INVALID_T) {
-		headIndex = 0;
-		tailIndex = LAST_INDEX(fileHeader);
-	}
-	else {
-		headIndex = fileHeader.nextIndex;
-		tailIndex = LAST_INDEX(fileHeader);
-	}
+	short i;
 
-	if ((int)from > fileHeader.logHeaderTable[tailIndex].t
-			|| (int)to < fileHeader.logHeaderTable[headIndex].t) {
+	myLog("searchRange(%d,%d)    minIndex: %hd maxIndex: %hd\n", (int)from, (int)to, fileHeader.minIndex, fileHeader.maxIndex);
+	// 非法时间
+	if (from > to) {
+		left = right = -1;
+		return false;
+	}
+	// 在已保存时间之外，则定位范围失败
+	if ((int)from > fileHeader.logHeaderTable[fileHeader.maxIndex].t
+			|| (int)to < fileHeader.logHeaderTable[fileHeader.minIndex].t) {
+		myLog("time overrange");
 		left = right = -1;
 		return false;
 	}
 
-	for (i=headIndex; i!=tailIndex; i=LSLOG_INC(i)) {
-		if (fileHeader.logHeaderTable[i].t > (int)from)
+	// 增序遍历，查找左边界
+	for (i=fileHeader.minIndex; i!=fileHeader.maxIndex; i=LSLOG_INC(i)) {
+		if (fileHeader.logHeaderTable[i].t >= (int)from)
 			break;
 	}
 	left = i;
 
-	for (i=tailIndex; i!=headIndex; i=LSLOG_DEC(i)) {
+	// 降序遍历，查找右边界
+	for (i=fileHeader.maxIndex; i!=fileHeader.minIndex; i=LSLOG_DEC(i)) {
 		if (fileHeader.logHeaderTable[i].t <= (int)to)
 			break;
 	}
@@ -382,61 +277,39 @@ bool LSLogFile::searchRange(time_t from, time_t to, short &left, short &right)
 // 找到t不小于key的索引
 short LSLogFile::search(time_t key)
 {
-	short i, headIndex, tailIndex;
+	short i;
 
-	myLog("search(%d)", (int)key);
-	if (fileHeader.logHeaderTable[fileHeader.nextIndex].t == INVALID_T) {
-		headIndex = 0;
-		tailIndex = LAST_INDEX(fileHeader);
-	}
-	else {
-		headIndex = fileHeader.nextIndex;
-		tailIndex = LAST_INDEX(fileHeader);
-	}
-	myLog("nextIndex: %hd, headIndex: %hd tailIndex: %hd", fileHeader.nextIndex, headIndex, tailIndex);
-	printHeader();
-	if (fileHeader.logHeaderTable[tailIndex].t < (int)key) {
-		myLog("tail: t=%d", fileHeader.logHeaderTable[tailIndex].t);
-		return tailIndex;
+	if (fileHeader.logHeaderTable[fileHeader.maxIndex].t < (int)key) {
+		return fileHeader.maxIndex;
 	}
 
-	for (i=headIndex; i!=tailIndex; i=LSLOG_INC(i)) {
+	for (i=fileHeader.minIndex; i!=fileHeader.maxIndex; i=LSLOG_INC(i)) {
 		if (fileHeader.logHeaderTable[i].t > (int)key)
 			break;
 	}
 	return i;
 }
 
-#if 1
-void LSLogFile::printFile()
+void LSLogFile::printHeader()
 {
 	int i;
 	LogHeaderItem *headerItem;
-	//LogStorageItem  item;
-	LogFileHeader header;
-	
-	lseek(logFileFd, 0, SEEK_SET);
-	if (read(logFileFd, &header, sizeof(LogFileHeader)) != sizeof(LogFileHeader)) {
-		printf("print() read header failed\n");
-	}
 
 	printf("%d ----------------------------\n"
-		   "nextIndex: %d\n", logType, header.nextIndex);
+		   "minIndex: %hd maxIndex: %hd\n", logType, fileHeader.minIndex, fileHeader.maxIndex);
 	for (i=0; i<LSLOG_MAX_LOG_NUM; i++) {
-		headerItem = &header.logHeaderTable[i];
+		headerItem = &fileHeader.logHeaderTable[i];
 		printf("t: %d index: %hd\n", 
 				headerItem->t, headerItem->offset);
 	}
-	/*
-	printf("------------------\n");
-	for (i=0; i<LSLOG_MAX_LOG_NUM; i++) {
-		fread(&item,sizeof(LogStorageItem), 1, logFile);
-		printf("%d %s %s\n", (int)item.t, item.user, item.eventTpl);
-	} */
 	printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n");
 }
-#endif
 
+#if 0
+void LSLogFile::sortHeaderTable(int(*cmp)(const void *, const void *))
+{
+	qsort(fileHeader.logHeaderTable, LSLOG_MAX_LOG_NUM, sizeof(LogHeaderItem), cmp);
+}
 
 int cmpOffset(const void *a, const void *b)
 {
@@ -455,3 +328,5 @@ int cmpTime(const void *a, const void *b)
 
 	return itemA->t - itemB->t;
 }
+
+#endif
