@@ -5,8 +5,10 @@
 #include "LSLogCacheQueue.h"
 #include "LSLogFileImpl.h"
 
+#include <sys/time.h>
+
 LSLogFileImpl::LSLogFileImpl(LSLogMemPool *pool)
-	: memPool(pool)
+	: initSucc(true), memPool(pool)
 {
 	int err;
 
@@ -19,7 +21,7 @@ LSLogFileImpl::LSLogFileImpl(LSLogMemPool *pool)
 	threadRun = true;
 	if ((err = pthread_create(&saveThread, NULL, saveTaskThread, this)) != 0) {
 		myLog("create saveTaskThread failed");
-		exit(-1);
+		initSucc = false;
 	}
 }
 
@@ -46,27 +48,49 @@ void * LSLogFileImpl::saveTaskThread(void *arg)
 	return NULL;
 }
 
-bool LSLogFileImpl::log(LogType type, time_t t, char *user, char *event)
+bool LSLogFileImpl::log(LogType type, time_t t, char *event)
 {
-	if (strlen(event) > LSLOG_MAX_EVENT_LEN || strlen(user) > LSLOG_MAX_USER_LEN) {
-		myLog("too long event string or user string");
+	if (!initSucc) return false;
+
+	LSLogInfo *logInfo = NULL; 
+	if (strlen(event) > LSLOG_MAX_EVENT_LEN ) {
+		myLog("too long event string");
 		return false;
 	}
-	LSLogInfo *logInfo = memPool->malloc();		
+
+	logInfo = memPool->malloc();		
 	logInfo->type = type;
 	logInfo->t = t;
-	strcpy(logInfo->user, user);
+	if (event==NULL || strlen(event) > LSLOG_MAX_EVENT_TPL_LEN) {
+		myLog("event too long");
+		goto FAIL;
+	}
 	strcpy(logInfo->event, event);
+	logInfo->isTpl = true;
 
 	//myLog("in queue: t=%d", (int)t);
 	// 缓存到队列，如果有消费者等待则唤醒它
 	cacheQueue->in(logInfo);
 
 	return true;
+FAIL:
+	if (logInfo)
+		memPool->free(logInfo);
+	return false;
 }
 
-int LSLogFileImpl::queryLog(LogType type, time_t from, time_t to, int pageCapacity, int pageIndex, struct LSLogInfo *&logInfos)
+
+bool LSLogFileImpl::log(LogType type, char *event)
 {
+	time_t t;
+
+	t = time(NULL);
+	return log(type, t, event);		
+}
+
+int LSLogFileImpl::queryLog(int type, time_t from, time_t to, int pageCapacity, int pageIndex, struct LSLogInfo *&logInfos)
+{
+	if (!initSucc) return 0;
 	if (type < LOG_NUM) {
 		return logFile[type]->query(from, to, pageCapacity, pageIndex, logInfos);
 	}

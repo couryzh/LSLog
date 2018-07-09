@@ -20,7 +20,7 @@
 #define LSLOG_PERM 			S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH
 
 LSLogFile::LSLogFile(unsigned type, LSLogMemPool *pool, LSLogTemplate *tpl)
-	: logType(type), logTpl(tpl), memPool(pool)
+	: initSucc(false), logType(type), logTpl(tpl), memPool(pool)
 {
 	unsigned logFileSize;
 	const char *fileName;
@@ -46,14 +46,12 @@ LSLogFile::LSLogFile(unsigned type, LSLogMemPool *pool, LSLogTemplate *tpl)
 	
 	if (snprintf(logPath, LSLOG_MAX_PATH_LEN+1, "%s%s", LSLOG_WORK_PATH, fileName) >= LSLOG_MAX_PATH_LEN+1) {
 		myLog("too long path: %s%s",  LSLOG_WORK_PATH, fileName); 
-		exit(-1);
 	}
 
 	isNewFile = (access(logPath, F_OK) < 0) ? true : false;
 	logFileFd = open(logPath, O_RDWR | O_CREAT, LSLOG_PERM);
 	if (logFileFd < 0) {
 		myLogErr("creat %s failed", logPath);
-		exit(-1);
 	}
 
 	// 若为新建文件，设置文件大小
@@ -61,7 +59,6 @@ LSLogFile::LSLogFile(unsigned type, LSLogMemPool *pool, LSLogTemplate *tpl)
 	if (isNewFile && ftruncate(logFileFd, logFileSize) < 0) {
 		close(logFileFd);
 		myLog("expand logfile size to %u", logFileSize);
-		exit(-1);
 	}
 
 	pthread_rwlock_init(&rwlock, NULL);
@@ -77,9 +74,9 @@ LSLogFile::LSLogFile(unsigned type, LSLogMemPool *pool, LSLogTemplate *tpl)
 	else {
 		if (!loadHeader()) {
 			myLog("failed to laodHeader()");
-			exit(-1);
 		}
 	}
+	initSucc = true;
 }
 
 LSLogFile::~LSLogFile()
@@ -117,6 +114,8 @@ bool LSLogFile::save(LSLogInfo *logInfo)
 
 	//myLog("save begin");
 
+	if (!initSucc) return false;
+	
 	// 转成模板
 	if (!logTpl->shrink(logInfo, &newLogItem)) {
 		myLog("faile to convert template");
@@ -185,6 +184,9 @@ int LSLogFile::query(time_t from, time_t to, int blockSize, int blockIndex, stru
 	LogStorageItem item;
 	LSLogInfo *logInfo, *prev;
 
+	// 无法提供服务，返回
+	if (!initSucc) return 0;
+	
 	prev = NULL;
 	pthread_rwlock_rdlock(&rwlock);
 	logInfos = NULL;
@@ -226,7 +228,7 @@ int LSLogFile::query(time_t from, time_t to, int blockSize, int blockIndex, stru
 			memPool->free(logInfo);
 			continue;
 		}
-		//myLog("expand: %s -> %s", item.eventTpl, logInfo->event);
+		myLog("expand: %s -> %s", item.eventTpl, logInfo->event);
 		if (prev == NULL) {
 			logInfos = prev = logInfo;
 			continue;
@@ -252,7 +254,7 @@ bool LSLogFile::searchRange(time_t from, time_t to, short &left, short &right)
 	// 在已保存时间之外，则定位范围失败
 	if ((int)from > fileHeader.logHeaderTable[fileHeader.maxIndex].t
 			|| (int)to < fileHeader.logHeaderTable[fileHeader.minIndex].t) {
-		myLog("time overrange");
+		myLog("time overrange minT: %d maxT: %d", fileHeader.logHeaderTable[fileHeader.minIndex].t, fileHeader.logHeaderTable[fileHeader.maxIndex].t);
 		left = right = -1;
 		return false;
 	}
@@ -305,28 +307,3 @@ void LSLogFile::printHeader()
 	printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n");
 }
 
-#if 0
-void LSLogFile::sortHeaderTable(int(*cmp)(const void *, const void *))
-{
-	qsort(fileHeader.logHeaderTable, LSLOG_MAX_LOG_NUM, sizeof(LogHeaderItem), cmp);
-}
-
-int cmpOffset(const void *a, const void *b)
-{
-	LSLogFile::LogHeaderItem *itemA, *itemB;
-	itemA = (LSLogFile::LogHeaderItem *)a;
-	itemB = (LSLogFile::LogHeaderItem *)b;
-
-	return itemA->offset - itemB->offset;
-}
-
-int cmpTime(const void *a, const void *b)
-{
-	LSLogFile::LogHeaderItem *itemA, *itemB;
-	itemA = (LSLogFile::LogHeaderItem *)a;
-	itemB = (LSLogFile::LogHeaderItem *)b;
-
-	return itemA->t - itemB->t;
-}
-
-#endif

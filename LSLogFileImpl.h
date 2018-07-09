@@ -2,6 +2,7 @@
 #define LSLOGFILEIMPL_H
 
 #include <pthread.h>
+#include "LSLogCommon.h"
 
 class LSLogFile;
 class LSLogTemplate;
@@ -13,25 +14,26 @@ public:
 	LSLogFileImpl(LSLogMemPool *pool);
 	~LSLogFileImpl();
 
-	bool log(LogType type, time_t t, char *user, char *event);
-	int queryLog(LogType type, time_t from, time_t to, 
+	bool log(LogType type, time_t t, char *event);
+	bool log(LogType type, char *event);
+	int queryLog(int type, time_t from, time_t to, 
 			int pageCapacity, int pageIndex, 
 			struct LSLogInfo *&logInfos);
 	static  void * saveTaskThread(void *arg);
 
-public:
-	LSLogFile *logFile[LOG_NUM];	// set private after test
 
 private:
 	void saveLog();
 	void stopSave();
 
 private:
+	bool initSucc;
 	bool threadRun;
 	pthread_t saveThread;
 	LSLogCacheQueue *cacheQueue;
 	LSLogMemPool *memPool;
 	LSLogTemplate *logTpl;
+	LSLogFile *logFile[LOG_NUM];
 };
 
 #endif

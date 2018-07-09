@@ -10,16 +10,10 @@ class LSLogMemPool;
 // 一条实际存储的日志记录
 struct LogStorageItem {
 	time_t t;
-	char user[LSLOG_MAX_USER_TPL_LEN+1];
 	char eventTpl[LSLOG_MAX_EVENT_TPL_LEN+1];
 };
 
 class LSLogFile {
-#if 0
-	friend int cmpOffset(const void * a,  const void *b);
-	friend int cmpTime(const void *a, const void *b);
-#endif
-
 public:
 	LSLogFile(unsigned type, LSLogMemPool *pool, LSLogTemplate *tpl);
 	~LSLogFile();
@@ -35,7 +29,6 @@ private:
 	unsigned getLogFileSize();
 
 	void printHeader();
-	//void sortHeaderTable(int(*cmp)(const void *, const void *));
 
 private:
 #pragma pack(2)	
@@ -48,7 +41,7 @@ private:
 		LogHeaderItem logHeaderTable[LSLOG_MAX_LOG_NUM];
 	};
 #pragma pack()	
-
+	bool initSucc;
 	unsigned logType;
 	int logFileFd;
 	LogFileHeader fileHeader;
@@ -58,10 +51,5 @@ private:
 	LSLogTemplate *logTpl;	
 	LSLogMemPool *memPool;
 };
-
-#if 0
-int cmpOffset(const void * a,  const void *b);
-int cmpTime(const void * a,  const void *b);
-#endif
 
 #endif

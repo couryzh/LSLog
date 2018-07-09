@@ -28,11 +28,11 @@ bool save()
 
 	for (i=1; i<=5; i++) {
 		sprintf(event, "设置-密码-%d", i);
-		log->log(OPE_LOG, i*2, (char *)"admin", event);
+		log->log(OPE_LOG, i*2, event);
 	}
 
 	sleep(3);
-	log->log(OPE_LOG, 5, (char *)"admin", (char*)"设置-密码-5");
+	log->log(OPE_LOG, 5, (char*)"设置-密码-5");
 	sleep(1);
 
 	return true;

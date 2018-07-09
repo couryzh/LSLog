@@ -82,14 +82,23 @@ LSLogInfo *LSLogMemPool::malloc(int n)
 void LSLogMemPool::free(void *p)
 {
 	pthread_mutex_lock(&lock);
-	LSLogInfo *logInfo = (LSLogInfo *)p;
-	if (freeList) {
-		logInfo->next = freeList;
-		freeList = logInfo;
+	LSLogInfo *tailInfo, *info;
+	LSLogInfo *logInfo;
+
+	tailInfo = NULL;
+	logInfo = (LSLogInfo *)p;
+	for (info=logInfo; info; info=info->next) {
+		tailInfo = info;
 	}
-	else {
-		freeList = logInfo;
-		logInfo->next = NULL;
+	if (tailInfo) {
+		if (freeList) {
+			tailInfo->next = freeList;
+			freeList = logInfo;
+		}
+		else {
+			freeList = logInfo;
+			tailInfo->next = NULL;
+		}
 	}
 
 	pthread_mutex_unlock(&lock);

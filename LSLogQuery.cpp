@@ -31,7 +31,7 @@ void query(int from, int to, int cap, int index)
 	printf("query %d-%d\n", from, to);
 	printf("total: %d\n", total);
 	for (p=logInfo; p != NULL; p=p->next) {
-		printf("%5d %s %s\n", (int)(p->t), p->user, p->event);
+		printf("%5d %s\n", (int)(p->t), p->event);
 	}
 	printf("\n");
 }

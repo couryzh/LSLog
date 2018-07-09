@@ -11,11 +11,10 @@
 
 /*
  * 日志模块
- *
  */
 
 // 最大日志条数
-#define LSLOG_MAX_LOG_NUM    		4
+#define LSLOG_MAX_LOG_NUM    		1000
 
 // 日志信息最大长度
 #define LSLOG_MAX_EVENT_LEN  		64
@@ -61,8 +60,8 @@ enum LogType {
 
 struct LSLogInfo {
 	LogType type;
+	bool isTpl;
 	time_t t;
-	char user[LSLOG_MAX_USER_LEN+1];
 	char event[LSLOG_MAX_EVENT_LEN+1];
 	struct LSLogInfo *next;
 };

@@ -29,7 +29,7 @@ public:
 
 private:
 	// 由.tpl文件加载已定义的模板
-	void load(const char *tplFile);
+	bool load(const char *tplFile);
 
 	// 将这对信息添加到map
 	bool addToken(char *sym, char *ch);
@@ -39,12 +39,6 @@ private:
 	void split(char *data, char *&sym, char *&ch);
 	void clear();
 
-	// 文字转符号
-	const char *shrink(const char *ch);
-	bool fillTpl(char eventTpl[], const unsigned size, int &len, const char *ch);
-	// 符号添加到符号buffer
-	int newSym(char *tplBuf, int size, const char *sym);
-
 	// 符号转文字
 	const char *expand(const char *sym);
 
@@ -53,8 +47,6 @@ private:
 private:
 	char templatePath[LSLOG_MAX_PATH_LEN+1];
 	std::map<std::string, std::string> symToCh;
-	std::map<std::string, std::string> chToSym;
 	std::vector<char *> symVec;
-	std::vector<char *> chVec;
 };
 #endif

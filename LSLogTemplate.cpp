@@ -22,7 +22,6 @@ LSLogTemplate::LSLogTemplate()
 
 	if (snprintf(tplPath, LSLOG_MAX_PATH_LEN+1, "%s%s", LSLOG_WORK_PATH, LSLOG_CFG_TEMPLATE) >= LSLOG_MAX_PATH_LEN+1) {
 		myLog("too long template path: %s%s",  LSLOG_WORK_PATH, LSLOG_CFG_TEMPLATE); 
-		exit(-1);
 	}
 	load(tplPath);
 }
@@ -32,7 +31,7 @@ LSLogTemplate::~LSLogTemplate()
 	clear();
 }
 
-void LSLogTemplate::load(const char *tplFile)
+bool LSLogTemplate::load(const char *tplFile)
 {
 	char line[64];
 	char *sym, *ch;
@@ -43,7 +42,7 @@ void LSLogTemplate::load(const char *tplFile)
 	tplFp = fopen(tplFile, "rb");
 	if (tplFp == NULL) {
 		myLogErr("open template file %s", tplFile);
-		exit(-1);
+		return false;
 	}
 
 	while (fgets(line, 64, tplFp)) {
@@ -57,22 +56,16 @@ void LSLogTemplate::load(const char *tplFile)
 	
 	fclose(tplFp);
 
+	return true;
+
 	//dump();
 }
 
 void LSLogTemplate::clear()
 {
 	symToCh.clear();
-	chToSym.clear();
-
 	std::vector<char *>::iterator it = symVec.begin();
 	while (it != symVec.end()) {
-		delete [] (*it);
-		++it;
-	}
-
-	it = chVec.begin();
-	while (it != chVec.end()) {
 		delete [] (*it);
 		++it;
 	}
@@ -84,7 +77,7 @@ void LSLogTemplate::reLoad(const char *tplFile)
 
 	if (snprintf(tplPath, LSLOG_MAX_PATH_LEN+1, "%s%s", LSLOG_WORK_PATH, tplFile) >= LSLOG_MAX_PATH_LEN+1) {
 		myLog("too long template path: %s%s",  LSLOG_WORK_PATH, tplFile);
-		exit(-1);
+		//exit(-1);
 	}
 	clear();
 	load(tplPath);
@@ -101,19 +94,15 @@ bool LSLogTemplate::addToken(char *sym, char *ch)
 		return false;
 	strcpy(mSym, sym);
 	symVec.push_back(mSym);
-
 	len = strlen(ch);
 	mCh = new char[len+1];
 	if (!mCh) {
 		delete [] mSym;
-		symVec.pop_back();
 		return false;
 	}
 	strcpy(mCh, ch);
-	chVec.push_back(mCh);
-
 	symToCh[mSym] = mCh;
-	chToSym[mCh] = mSym;
+	dump();
 	return true;
 }
 
@@ -188,87 +177,14 @@ bool LSLogTemplate::isLegalEvent(const char *eventSym)
 	return true;
 }
 
-const char *LSLogTemplate::shrink(const char *ch)
-{
-	std::map<std::string, std::string>::iterator it;
-
-	it = chToSym.find(ch);
-	if (it == chToSym.end())
-		return NULL;
-	return it->second.c_str();
-}
-
-int LSLogTemplate::newSym(char *tplBuf, int size, const char *sym)
-{
-	int len;
-	
-	*tplBuf = LSLOG_TPL_SYM_START; 
-	len = strlen(sym);
-	if (len + 2 >= size) return 0; 
-	strcpy(&tplBuf[1], sym);
-	tplBuf[len+1] = LSLOG_TPL_SYM_END;
-
-	return len+2;
-}
-
-bool LSLogTemplate::fillTpl(char eventTpl[], const unsigned size, int &len, const char *ch)
-{
-	const char *sym;
-	int symLen;
-
-	if ((sym = shrink(ch)) == NULL) {
-		//myLog("%s: 未知文字，直接复制", ch);
-		if (strlen(ch) + len > size - 1) {
-			myLog("模板空间不足");
-			return false;
-		}
-		strcpy(&eventTpl[len], ch);
-		len += strlen(ch);
-		return true;
-	}
-
-	symLen = newSym(&eventTpl[len], size-1-len, sym);
-	if (symLen == 0) {
-		myLog("模板空间不足");
-		return false;
-	}
-	len += symLen;
-
-	return true;
-}
-
 bool LSLogTemplate::shrink(const LSLogInfo *logInfo, LogStorageItem *logStorageItem)
 {
-	const char *userSym;
-	char *p, *p2, event[LSLOG_MAX_EVENT_LEN+1];
-	char eventTpl[LSLOG_MAX_EVENT_TPL_LEN+1];
-	int len;
-
+	if (!logInfo->isTpl || !isLegalEvent(logInfo->event))
+		return false;
 	
-	len = 0;
-	memset(eventTpl, 0, LSLOG_MAX_EVENT_TPL_LEN+1);
-	memcpy(event, logInfo->event, LSLOG_MAX_EVENT_LEN+1); 
-	for (p=event; *p != '0'; p=p2) {
-		p2 = strchr(p, LSLOG_TPL_CH_DELIMTER);
-		if (p2 == NULL) break;
-
-		*p2++ = '\0';	
-		if (!fillTpl(eventTpl, LSLOG_MAX_EVENT_TPL_LEN+1, len, p))
-			return false;
-	}
-
-	if (*p != '\0') {
-		if (!fillTpl(eventTpl, LSLOG_MAX_EVENT_TPL_LEN+1, len, p))
-			return false;
-	}
-	memcpy(logStorageItem->eventTpl, eventTpl, LSLOG_MAX_EVENT_TPL_LEN+1);
+	memcpy(logStorageItem->eventTpl, logInfo->event, LSLOG_MAX_EVENT_TPL_LEN+1);
+	myLog("eventTpl: %s", logStorageItem->eventTpl);
 	logStorageItem->t = logInfo->t;
-	userSym = shrink(logInfo->user);
-	if (userSym == NULL) {
-		userSym = LSLOG_TPL_UNKOWN_USER;
-	}
-	memcpy(logStorageItem->user, userSym, LSLOG_MAX_USER_TPL_LEN);
-logStorageItem->user[LSLOG_MAX_USER_TPL_LEN] = '\0';
 
 	return true;
 }
@@ -330,12 +246,9 @@ bool LSLogTemplate::expand(const LogStorageItem *logStorageItem, LSLogInfo *&log
 
 	if (*p == '\0') {
 		logInfo->event[iPos] = '\0';
+		logInfo->isTpl = false;
 
-		const char *userCh;
 		logInfo->t = logStorageItem->t;
-		userCh = expand(logStorageItem->user);
-		memcpy(logInfo->user, userCh, LSLOG_MAX_USER_LEN);
-		logInfo->user[LSLOG_MAX_USER_LEN] = '\0';
 		return true;
 	}
 
@@ -348,11 +261,6 @@ void LSLogTemplate::dump()
 
 	printf("symbol to Charater\n");
 	for (it=symToCh.begin(); it!=symToCh.end(); ++it) {
-		printf("  %s: %s\n", it->first.c_str(), it->second.c_str());
-	}
-
-	printf("Charater to symbol\n");
-	for (it=chToSym.begin(); it!=chToSym.end(); ++it) {
 		printf("  %s: %s\n", it->first.c_str(), it->second.c_str());
 	}
 }
