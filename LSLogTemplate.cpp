@@ -57,8 +57,6 @@ bool LSLogTemplate::load(const char *tplFile)
 	fclose(tplFp);
 
 	return true;
-
-	//dump();
 }
 
 void LSLogTemplate::clear()
@@ -102,7 +100,6 @@ bool LSLogTemplate::addToken(char *sym, char *ch)
 	}
 	strcpy(mCh, ch);
 	symToCh[mSym] = mCh;
-	dump();
 	return true;
 }
 

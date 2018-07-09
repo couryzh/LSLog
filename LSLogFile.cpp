@@ -64,7 +64,7 @@ LSLogFile::LSLogFile(unsigned type, LSLogMemPool *pool, LSLogTemplate *tpl)
 	pthread_rwlock_init(&rwlock, NULL);
 
 	if (isNewFile) {
-		fileHeader.minIndex = fileHeader.maxIndex = 0;
+		fileHeader.minIndex = fileHeader.maxIndex = -1;
 		for (int i=0; i<LSLOG_MAX_LOG_NUM; i++) {
 			fileHeader.logHeaderTable[i].t = INVALID_T;
 			fileHeader.logHeaderTable[i].offset = i;
@@ -157,17 +157,22 @@ bool LSLogFile::save(LSLogInfo *logInfo)
 			write(logFileFd, &fileHeader.logHeaderTable[nextIndex], sizeof(LogHeaderItem));
 		}
 		fileHeader.maxIndex = nextIndex;
-
-		if (fileHeader.maxIndex == fileHeader.minIndex) {
+		/* minIndex为初始值，这里maxIndex更新了，需要将minIndex更新 */
+		if (fileHeader.minIndex == -1) {
+			fileHeader.minIndex = 0;
+			lseek(logFileFd, 0, SEEK_SET);
+			write(logFileFd, &fileHeader.minIndex, sizeof(short));
+		}
+		/* maxIndex增加到开头再次追上minIndex，更新minIndex */
+		else if (fileHeader.maxIndex == fileHeader.minIndex) {
 			fileHeader.minIndex = LSLOG_INC(fileHeader.minIndex);
 			lseek(logFileFd, 0, SEEK_SET);
 			write(logFileFd, &fileHeader.minIndex, sizeof(short));
-			write(logFileFd, &fileHeader.maxIndex, sizeof(short));
 		}
-		else {
-			lseek(logFileFd, sizeof(short), SEEK_SET);
-			write(logFileFd, &fileHeader.maxIndex, sizeof(short));
-		}
+
+		lseek(logFileFd, sizeof(short), SEEK_SET);
+		write(logFileFd, &fileHeader.maxIndex, sizeof(short));
+
 		myLog("minIndex=%hd maxIndex=%hd", fileHeader.minIndex, fileHeader.maxIndex);
 	}
 	pthread_rwlock_unlock(&rwlock);
@@ -213,7 +218,6 @@ int LSLogFile::query(time_t from, time_t to, int blockSize, int blockIndex, stru
 		if (offIndex + i >= totalInfo) break;
 
 		index = (beginIndex + offIndex + i) % LSLOG_MAX_LOG_NUM; 
-		myLog("index=%hd", index);
 
 		offset = ITEM_OFF(index);
 		lseek(logFileFd, offset, SEEK_SET);
@@ -228,7 +232,7 @@ int LSLogFile::query(time_t from, time_t to, int blockSize, int blockIndex, stru
 			memPool->free(logInfo);
 			continue;
 		}
-		myLog("expand: %s -> %s", item.eventTpl, logInfo->event);
+		//myLog("expand: %s -> %s", item.eventTpl, logInfo->event);
 		if (prev == NULL) {
 			logInfos = prev = logInfo;
 			continue;
@@ -245,7 +249,16 @@ bool LSLogFile::searchRange(time_t from, time_t to, short &left, short &right)
 {
 	short i;
 
-	myLog("searchRange(%d,%d)    minIndex: %hd maxIndex: %hd\n", (int)from, (int)to, fileHeader.minIndex, fileHeader.maxIndex);
+	//myLog("searchRange(%d,%d)  minIndex(%hd): %d maxIndex(%hd): %d\n", (int)from, (int)to, 
+	//		fileHeader.minIndex, fileHeader.minIndex==-1 ? 0 : fileHeader.logHeaderTable[fileHeader.minIndex].t, 
+	//		fileHeader.maxIndex, fileHeader.maxIndex==-1 ? 0x7fffffff : fileHeader.logHeaderTable[fileHeader.maxIndex].t);
+
+	// 没有任何日志信息
+	if (fileHeader.minIndex == -1 || fileHeader.maxIndex == -1) {
+		left = right = -1;
+		return false;
+	}
+
 	// 非法时间
 	if (from > to) {
 		left = right = -1;
@@ -254,7 +267,7 @@ bool LSLogFile::searchRange(time_t from, time_t to, short &left, short &right)
 	// 在已保存时间之外，则定位范围失败
 	if ((int)from > fileHeader.logHeaderTable[fileHeader.maxIndex].t
 			|| (int)to < fileHeader.logHeaderTable[fileHeader.minIndex].t) {
-		myLog("time overrange minT: %d maxT: %d", fileHeader.logHeaderTable[fileHeader.minIndex].t, fileHeader.logHeaderTable[fileHeader.maxIndex].t);
+		myLog("time overrange");
 		left = right = -1;
 		return false;
 	}

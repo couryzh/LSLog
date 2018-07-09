@@ -14,7 +14,7 @@
  */
 
 // 最大日志条数
-#define LSLOG_MAX_LOG_NUM    		1000
+#define LSLOG_MAX_LOG_NUM    		2000
 
 // 日志信息最大长度
 #define LSLOG_MAX_EVENT_LEN  		64
