@@ -6,13 +6,13 @@ LSLogTemplate *tpl;
 
 void isLegalEventTest()
 {
-	assert(tpl->isLegalEvent("{p1}{n5}"));
-	assert(tpl->isLegalEvent("{p1}a{n5}bb"));
-	assert(tpl->isLegalEvent("{p1}{n5}安全"));
-	assert(tpl->isLegalEvent("{p2}{n5}") == false);
-	assert(tpl->isLegalEvent("{p}{") == false);
-	assert(tpl->isLegalEvent("{p{n5") == false);
-	assert(tpl->isLegalEvent("{}p{n5}") == false);
+	assert(tpl->isLegalEvent("{s}{up}"));
+	assert(tpl->isLegalEvent("{s}a{up}bb"));
+	assert(tpl->isLegalEvent("{s}{up}安全"));
+	assert(tpl->isLegalEvent("{s}{n5}") == false);
+	assert(tpl->isLegalEvent("{s}{") == false);
+	assert(tpl->isLegalEvent("{s{up") == false);
+	assert(tpl->isLegalEvent("{}p{up}") == false);
 
 	printf("isLegalEvent pass !\n");
 }
@@ -21,6 +21,9 @@ int main()
 {
 	tpl = new LSLogTemplate();
 
+	isLegalEventTest();
+
+	tpl->reLoad("ls2.tpl");
 	isLegalEventTest();
 
 	return 0;

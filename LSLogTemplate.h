@@ -48,5 +48,6 @@ private:
 	char templatePath[LSLOG_MAX_PATH_LEN+1];
 	std::map<std::string, std::string> symToCh;
 	std::vector<char *> symVec;
+	std::vector<char *> chVec;
 };
 #endif

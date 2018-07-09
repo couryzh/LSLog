@@ -57,16 +57,24 @@ bool LSLogTemplate::load(const char *tplFile)
 	fclose(tplFp);
 
 	return true;
+
+	//dump();
 }
 
 void LSLogTemplate::clear()
 {
-	symToCh.clear();
 	std::vector<char *>::iterator it = symVec.begin();
 	while (it != symVec.end()) {
 		delete [] (*it);
 		++it;
 	}
+
+	it = chVec.begin();
+	while (it != chVec.end()) {
+		delete [] (*it);
+		++it;
+	}
+	symToCh.clear();
 }
 
 void LSLogTemplate::reLoad(const char *tplFile)
@@ -92,6 +100,7 @@ bool LSLogTemplate::addToken(char *sym, char *ch)
 		return false;
 	strcpy(mSym, sym);
 	symVec.push_back(mSym);
+
 	len = strlen(ch);
 	mCh = new char[len+1];
 	if (!mCh) {
@@ -99,7 +108,10 @@ bool LSLogTemplate::addToken(char *sym, char *ch)
 		return false;
 	}
 	strcpy(mCh, ch);
+	chVec.push_back(mCh);
+
 	symToCh[mSym] = mCh;
+	//dump();
 	return true;
 }
 
