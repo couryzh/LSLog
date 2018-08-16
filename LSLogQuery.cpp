@@ -4,6 +4,7 @@
 
 #include <string.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 // ---------------------------------------
 LSLogMemPool *pool;
@@ -38,23 +39,27 @@ void query(int from, int to, int cap, int index)
 
 int main(int argc, char *argv[])
 {
-	int from, to;
+	int i, from, to;
 	int pageCap, pageIndex;
+	time_t t;
 
-	if (argc < 5) {
-		printf("Usage: %s from to pageCapacity pageIndex\n", argv[0]);
-		exit(-1);
-	}
-	from = atoi(argv[1]);
-	to = atoi(argv[2]);
-	pageCap = atoi(argv[3]);
-	pageIndex = atoi(argv[4]);
+	//if (argc < 5) {
+	//	printf("Usage: %s from to pageCapacity pageIndex\n", argv[0]);
+	//	exit(-1);
+	//}
 
 	init();
 
-
-	// start begin
-	query(from, to, pageCap, pageIndex);
+	t = time(NULL);
+	srand((unsigned int)t);
+	for (i=0; i<5000; i++) {
+		// start begin
+		from = rand() % 3000 + 1;
+		to = rand() % 5000 + from;
+		pageCap = 5;
+		pageIndex = 1;
+		query(from, to, pageCap, pageIndex);
+	}
 
 	destroy();
 	return 0;

@@ -8,6 +8,8 @@
 #include "LSLogTemplate.h"
 #include "LSLogFile.h"
 
+//#define OLD_VERSION
+
 #define LSLOG_INC(i)		((i + 1) % LSLOG_MAX_LOG_NUM)
 #define LSLOG_DEC(i)		((i + LSLOG_MAX_LOG_NUM - 1) % LSLOG_MAX_LOG_NUM)
 
@@ -90,15 +92,24 @@ LSLogFile::~LSLogFile()
 
 bool LSLogFile::loadHeader()
 {
+	unsigned loadSize;
 	lseek(logFileFd, 0, SEEK_SET);
 
-	return read(logFileFd, &fileHeader, sizeof(LogFileHeader)) == sizeof(LogFileHeader);
+//	return read(logFileFd, &fileHeader, sizeof(LogFileHeader)) == sizeof(LogFileHeader);
+	loadSize = read(logFileFd, &fileHeader, sizeof(LogFileHeader));
+	myLog("load Header actually: %u, %u", loadSize, sizeof(LogFileHeader));
+	return loadSize == sizeof(LogFileHeader);
 }
 
 bool LSLogFile::dumpHeader()
 {
+	unsigned dumpSize;
 	lseek(logFileFd, 0, SEEK_SET);
-	return (write(logFileFd, &fileHeader, sizeof(LogFileHeader)) == sizeof(LogFileHeader));
+
+	//return (write(logFileFd, &fileHeader, sizeof(LogFileHeader)) == sizeof(LogFileHeader));
+	dumpSize = write(logFileFd, &fileHeader, sizeof(LogFileHeader));
+	myLog("dump header actually: %u, %u", dumpSize, sizeof(LogFileHeader));
+	return dumpSize == sizeof(LogFileHeader);
 }
 
 unsigned LSLogFile::getLogFileSize()
@@ -125,7 +136,11 @@ bool LSLogFile::save(LSLogInfo *logInfo)
 	pthread_rwlock_wrlock(&rwlock);
 	if (newLogItem.t < fileHeader.logHeaderTable[fileHeader.maxIndex].t) {
 		// 查找此时刻对应index
+#if defined OLD_VERSION 
 		newIndex = search(newLogItem.t);
+#else
+		newIndex = searchLeftBorder(newLogItem.t);
+#endif
 		myLog("find new insert index %hd for t=%d", newIndex, (int)newLogItem.t);
 
 		// 保存信息
@@ -247,7 +262,9 @@ int LSLogFile::query(time_t from, time_t to, int blockSize, int blockIndex, stru
 
 bool LSLogFile::searchRange(time_t from, time_t to, short &left, short &right)
 {
+#if defined OLD_VERSION
 	short i;
+#endif
 
 	//myLog("searchRange(%d,%d)  minIndex(%hd): %d maxIndex(%hd): %d\n", (int)from, (int)to, 
 	//		fileHeader.minIndex, fileHeader.minIndex==-1 ? 0 : fileHeader.logHeaderTable[fileHeader.minIndex].t, 
@@ -267,24 +284,34 @@ bool LSLogFile::searchRange(time_t from, time_t to, short &left, short &right)
 	// 在已保存时间之外，则定位范围失败
 	if ((int)from > fileHeader.logHeaderTable[fileHeader.maxIndex].t
 			|| (int)to < fileHeader.logHeaderTable[fileHeader.minIndex].t) {
-		myLog("time overrange");
+		myLog("time overrange now between(%d, %d)",
+				fileHeader.logHeaderTable[fileHeader.minIndex].t,
+				fileHeader.logHeaderTable[fileHeader.maxIndex].t);
 		left = right = -1;
 		return false;
 	}
 
 	// 增序遍历，查找左边界
+#if defined OLD_VERSION
 	for (i=fileHeader.minIndex; i!=fileHeader.maxIndex; i=LSLOG_INC(i)) {
 		if (fileHeader.logHeaderTable[i].t >= (int)from)
 			break;
 	}
 	left = i;
+#else
+	left = searchLeftBorder((int)from);
+#endif
 
 	// 降序遍历，查找右边界
+#if defined OLD_VERSION
 	for (i=fileHeader.maxIndex; i!=fileHeader.minIndex; i=LSLOG_DEC(i)) {
 		if (fileHeader.logHeaderTable[i].t <= (int)to)
 			break;
 	}
 	right = i;
+#else
+	right = searchRightBorder((int)to);
+#endif
 
 	return true;
 }
@@ -303,6 +330,113 @@ short LSLogFile::search(time_t key)
 			break;
 	}
 	return i;
+}
+
+short LSLogFile::searchBetween(short low, short high, int key, int cond)
+{
+	short middle, match;
+	int shortEnough;
+
+	//printf("search %d in array %s\n", key, printIntArr(nums, len, buf));
+
+	middle = (low + high) / 2;
+	match = -1;
+	shortEnough = 0;
+
+	while (!shortEnough) {
+		printf("delta length %d (%d, %d)\n", high - low + 1, fileHeader.logHeaderTable[low].t, fileHeader.logHeaderTable[high].t);
+		if (high - low >= 3) {
+			if (fileHeader.logHeaderTable[middle].t > key) {
+				high = middle;
+			}
+			else if (fileHeader.logHeaderTable[middle].t < key) {
+				low = middle;
+			}
+			else {
+				if (cond == CMP_GE) {
+					match = middle;
+				}
+				else if (cond == CMP_LE) {
+					match = middle;
+
+				}
+				break;
+			}
+			middle = (low + high) / 2;
+		}
+		else {
+			int tmp;
+			shortEnough = 1;
+			if (cond == CMP_GE) {
+				for (tmp = low; tmp <=high; tmp++) {
+					if (fileHeader.logHeaderTable[tmp].t > key) {
+						match = tmp;
+						break;
+					}
+				}
+				if (match == -1 && fileHeader.logHeaderTable[high].t == key)
+					match = high;
+			}
+			else if (cond == CMP_LE) {
+				for (tmp = high; tmp >=low; tmp--) {
+					if (fileHeader.logHeaderTable[tmp].t < key) {
+						match = tmp;
+						break;
+					}
+				}
+				if (match == -1 && fileHeader.logHeaderTable[low].t == key)
+					match = low;
+			}
+		}
+	}
+
+	printf("[%d]: %d\n", match, fileHeader.logHeaderTable[match].t);
+	return match;
+}
+
+short LSLogFile::searchLeftBorder(time_t key)
+{
+	short low, high;
+
+	if (fileHeader.logHeaderTable[fileHeader.maxIndex].t < (int)key) {
+		return fileHeader.maxIndex;
+	}
+
+	if (fileHeader.minIndex > fileHeader.maxIndex) {
+		if (fileHeader.logHeaderTable[LSLOG_MAX_LOG_NUM - 1].t <= (int)key) {
+			low = 0;
+			high = fileHeader.maxIndex;
+		}
+		else {
+			low = fileHeader.minIndex;
+			high = LSLOG_MAX_LOG_NUM-1;
+		}
+		return searchBetween(low, high, (int)key, CMP_GE);
+	}
+	return searchBetween(fileHeader.minIndex, fileHeader.maxIndex, (int)key, CMP_GE);
+}
+
+
+short LSLogFile::searchRightBorder(time_t key)
+{
+	short low, high;
+
+	if (fileHeader.logHeaderTable[fileHeader.minIndex].t > (int)key) {
+		return fileHeader.minIndex;
+	}
+
+	if (fileHeader.minIndex > fileHeader.maxIndex) {
+		if (fileHeader.logHeaderTable[LSLOG_MAX_LOG_NUM - 1].t <= (int)key) {
+			low = 0;
+			high = fileHeader.maxIndex;
+		}
+		else {
+			low = fileHeader.minIndex;
+			high = LSLOG_MAX_LOG_NUM-1;
+		}
+		return searchBetween(low, high, (int)key, CMP_LE);
+	}
+	return searchBetween(fileHeader.minIndex, fileHeader.maxIndex, (int)key, CMP_LE);
 }
 
 void LSLogFile::printHeader()

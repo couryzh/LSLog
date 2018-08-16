@@ -22,10 +22,14 @@ public:
 	int query(time_t from, time_t to, int blockSize, int blockIndex, struct LSLogInfo *& logInfos);
 
 private:
+	enum {CMP_LE, CMP_GE};
 	bool loadHeader();
 	bool dumpHeader();
 	short search(time_t key);
 	bool searchRange(time_t from, time_t to, short &left, short &right);
+	short searchBetween(short low, short high, int key, int cond);
+	short searchLeftBorder(time_t key);
+	short searchRightBorder(time_t key);
 	unsigned getLogFileSize();
 
 	void printHeader();

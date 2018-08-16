@@ -46,15 +46,15 @@ bool testFilex()
 	int ts, te;
 	LSLogInfo *logInfo, *p;
 
-	for (i=1; i<=1000; i++) {
+	for (i=1; i<=10000; i++) {
 		sprintf(event, "设置-密码-%d", i);
 		log->log(OPE_LOG, i*2, event);
 	}
 
-	sleep(2);
+	sleep(3);
 
-	ts =1800; te=2000;
-	total = log->queryLog(OPE_LOG, ts, te, 8, 1, logInfo);
+	ts=80; te=100;
+	total = log->queryLog(OPE_LOG, ts, te, 5, 1, logInfo);
 	printf("query %d-%d\n", ts, te);
 	printf("total: %d\n", total);
 	for (p=logInfo; p != NULL; p=p->next) {
